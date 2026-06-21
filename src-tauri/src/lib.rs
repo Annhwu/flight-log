@@ -1,11 +1,27 @@
 use std::fs;
 use std::path::PathBuf;
 use tauri::Manager;
+// use tauri::api::dialog::FileDialogBuilder; // removed for Tauri v2 compatibility
+
+
+pub fn run() {
+    tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .invoke_handler(tauri::generate_handler![save_file, save_data, load_data])
+        .run(tauri::generate_context!())
+        .expect("Erreur démarrage");
+}
 
 fn data_path(app: &tauri::AppHandle) -> PathBuf {
     app.path().app_data_dir()
         .expect("Impossible de trouver le dossier AppData")
         .join("dcs_flight_log.json")
+}
+
+
+#[tauri::command]
+fn save_file(path: String, content: String) -> Result<(), String> {
+    fs::write(path, content).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -27,9 +43,4 @@ fn load_data(app: tauri::AppHandle) -> Result<String, String> {
     }
 }
 
-pub fn run() {
-    tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![save_data, load_data])
-        .run(tauri::generate_context!())
-        .expect("Erreur démarrage");
-}
+

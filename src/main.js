@@ -1,3 +1,4 @@
+// No npm imports needed - dialog is called via Tauri internals
 async function invoke(cmd, args) {
   return window.__TAURI_INTERNALS__.invoke(cmd, args);
 }
@@ -28,7 +29,7 @@ async function loadFromFile() {
     const content = await invoke('load_data');
     if (content) {
       const data = JSON.parse(content);
-      let steamMinutes = 0;
+    steamMinutes = 0; // reset global
       sessions = data.sessions ?? [];
     }
   } catch (e) {
@@ -43,14 +44,24 @@ function showSaveIndicator() {
 }
 
 // ─── Export / Import manuel ────────────────────────────────
-function exportJSON() {
+// import { save } from '@tauri-apps/api/dialog'; // duplicate removed
+
+async function exportJSON() {
   const data = { steamMinutes, sessions };
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'export_dcs_flight_log.json';
-  a.click();
+  const json = JSON.stringify(data, null, 2);
+  // Use Tauri dialog plugin via internals (no bundler needed)
+  const filePath = await window.__TAURI_INTERNALS__.invoke('plugin:dialog|save', {
+    options: {
+      defaultPath: 'export_dcs_flight_log.json',
+      filters: [{ name: 'JSON', extensions: ['json'] }]
+    }
+  });
+  if (filePath) {
+    await invoke('save_file', { path: filePath, content: json });
+  }
 }
+window.exportJSON = exportJSON;
+window.importJSON = importJSON;
 
 function importJSON() {
   document.getElementById('file-input').click();
@@ -63,7 +74,7 @@ function loadFile(event) {
   reader.onload = async (e) => {
     try {
       const data = JSON.parse(e.target.result);
-      let steamMinutes = 0;
+      steamMinutes = data.steamMinutes ?? 0;
       sessions = data.sessions ?? [];
       await saveToFile();
       updateSteamDisplay();
