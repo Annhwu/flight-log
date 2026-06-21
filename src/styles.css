@@ -10,7 +10,7 @@ body{background:var(--bg);height:100vh;display:flex;flex-direction:column;margin
 #titlebar-title{font-family:var(--mono);font-size:11px;letter-spacing:3px;color:#d6cfc4;display:flex;align-items:center;gap:6px;}
 #titlebar-icon{width:16px;height:16px;image-rendering:pixelated;}
 #titlebar-controls{display:flex;height:100%;}
-#titlebar-controls button{font-family:var(--mono);background:transparent;border:none;color:#d6cfc4;width:38px;height:100%;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:background 0.15s;padding:0;}
+#titlebar-controls button{font-family:var(--mono);background:transparent;border:none;color:#d6cfc4;width:38px;height:100%;cursor:pointer;font-size:17px;display:flex;align-items:center;justify-content:center;transition:background 0.15s;padding:0;border-radius:3px;}
 #titlebar-controls button:hover{background:#6b5a4a;color:#fff;}
 #tb-close:hover{background:#8a2020;color:#fff;}
 .page{flex:1;display:flex;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto;}
@@ -37,9 +37,10 @@ body{background:var(--bg);height:100vh;display:flex;flex-direction:column;margin
 .btn{font-family:'Inter',sans-serif;font-size:14px;border:1.5px solid var(--ink);background:#fff;color:var(--ink);padding:9px 20px;border-radius:35px;cursor:pointer;transition:background 0.15s;}
 .btn:hover{background:#4a3d32;color:#fff;}
 .btn.active{border-color:#8a2020;color:#8a2020;}
-.btn-sm{font-family:'Inter',sans-serif;font-size:12px;border:1.5px solid var(--ink);background:#fff;color:var(--ink);padding:5px 12px;border-radius:35px;cursor:pointer;transition:background 0.15s;}
+.btn.active:hover{background:#8a2020;color:#fff;}
+.btn-sm{font-family:'Inter',sans-serif;font-size:12px;border:1.5px solid var(--ink);background:#fff;color:var(--ink);padding:5px 12px;border-radius:6px;cursor:pointer;transition:background 0.15s;}
 .btn-sm:hover{background:#4a3d32;color:#fff;}
-.btn-danger{font-family:'Inter',sans-serif;font-size:12px;border:1.5px solid #8a2020;background:#fff;color:#8a2020;padding:5px 12px;border-radius:35px;cursor:pointer;margin-left:auto;}
+.btn-danger{font-family:'Inter',sans-serif;font-size:12px;border:1.5px solid #8a2020;background:#fff;color:#8a2020;padding:5px 12px;border-radius:6px;cursor:pointer;margin-left:auto;}
 .btn-danger:hover{background:#8a2020;color:#fff;}
 
 /* ── Historique ── */
