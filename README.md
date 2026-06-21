@@ -1,4 +1,4 @@
-# ✈ DCS Flight Log
+# Flight Log
 
 Journal de vol personnel pour **DCS World** — enregistrez vos sessions de vol, éditez-les, et exportez vos données au format JSON.
 
