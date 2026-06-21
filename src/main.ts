@@ -10,6 +10,7 @@ interface Session {
   startTs: number;
   endTs: number;
   durationMin: number;
+  notes?: string;
 }
 
 interface AppData {
@@ -49,6 +50,7 @@ declare global {
     tbMinimize: () => void;
     tbMaximize: () => void;
     tbClose: () => void;
+    toggleCard: (id: number) => void;
   }
 }
 
@@ -66,6 +68,7 @@ let elapsedInterval: number | null = null;
 // ─── Utilitaires ───────────────────────────────────────────────────────────
 
 function pad(n: number): string { return String(n).padStart(2, '0'); }
+function escapeHtml(s: string): string { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function fmtTime(d: Date): string { return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); }
 function fmtDate(d: Date): string { return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
 function fmtDateInput(d: Date): string { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
@@ -257,18 +260,26 @@ function renderSessions(): void {
   sc.textContent = sessions.length + ' session(s) · ' + minsToHM(totalSAMin());
   list.innerHTML = sessions.map((s, i) => {
     const start = new Date(s.startTs);
-    const end = new Date(s.endTs);
-    const num = sessions.length - i;
-    return `<div class="session-card" id="sc-${s.id}">
+    const end   = new Date(s.endTs);
+    const num   = sessions.length - i;
+    const notesPreview = s.notes ? `<div class="s-notes">${escapeHtml(s.notes)}</div>` : '';
+    const notesFull    = s.notes
+      ? `<div class="s-notes-full">${escapeHtml(s.notes).replace(/\n/g, '<br>')}</div>`
+      : `<div class="s-notes-empty">Aucune note pour ce vol.</div>`;
+    return `<div class="session-card" id="sc-${s.id}" onclick="toggleCard(${s.id})">
       <div class="s-num">#${pad(num)}</div>
       <div class="s-times">
         <div class="row">Déb&nbsp;<span>${fmtDate(start)} ${pad(start.getHours())}:${pad(start.getMinutes())}</span></div>
         <div class="row">Fin&nbsp;<span>${fmtDate(end)} ${pad(end.getHours())}:${pad(end.getMinutes())}</span></div>
       </div>
       <div class="s-dur">${durLabel(s.durationMin)}</div>
-      <button class="btn-sm" onclick="toggleEdit(${s.id})">Éditer</button>
-      <button class="btn-danger" onclick="deleteSession(${s.id})">Supprimer</button>
-      <div class="edit-row" id="edit-${s.id}">
+      <button class="btn-sm" onclick="event.stopPropagation();toggleEdit(${s.id})">Éditer</button>
+      <button class="btn-danger" onclick="event.stopPropagation();deleteSession(${s.id})">Supprimer</button>
+      ${notesPreview}
+      <div class="s-details" id="details-${s.id}">
+        ${notesFull}
+      </div>
+      <div class="edit-row" id="edit-${s.id}" onclick="event.stopPropagation()">
         <div class="edit-block">
           <div class="edit-block-label">Début</div>
           <div class="edit-fields-row">
@@ -291,6 +302,10 @@ function renderSessions(): void {
           <span class="res-label">Durée calculée</span>
           <span class="res-dur" id="res-dur-${s.id}">${durLabel(s.durationMin)}</span>
         </div>
+        <div class="notes-group">
+          <label class="edit-block-label">Notes du vol</label>
+          <textarea id="enotes-${s.id}" class="notes-textarea" placeholder="Comment s'est passé ce vol ? Points à améliorer, impressions..." oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'">${escapeHtml(s.notes || '')}</textarea>
+        </div>
         <div class="edit-actions">
           <button class="btn-sm" onclick="saveEdit(${s.id})">Valider</button>
           <button class="btn-sm" onclick="cancelEdit(${s.id})">Annuler</button>
@@ -301,15 +316,42 @@ function renderSessions(): void {
   }).join('');
 }
 
+function toggleCard(id: number): void {
+  const card    = document.getElementById('sc-' + id) as HTMLElement;
+  const details = document.getElementById('details-' + id) as HTMLElement;
+  const editRow = document.getElementById('edit-' + id) as HTMLElement;
+  const isOpen  = card.classList.contains('expanded');
+  if (isOpen) {
+    card.classList.remove('expanded', 'editing');
+    details.style.display = 'none';
+    editRow.style.display = 'none';
+  } else {
+    card.classList.add('expanded');
+    details.style.display = 'block';
+  }
+}
+
 function toggleEdit(id: number): void {
-  const row = document.getElementById('edit-' + id) as HTMLElement;
+  const row  = document.getElementById('edit-' + id) as HTMLElement;
   const card = document.getElementById('sc-' + id) as HTMLElement;
-  if (row.style.display === 'flex') { row.style.display = 'none'; card.classList.remove('editing'); }
-  else { row.style.display = 'flex'; card.classList.add('editing'); }
+  if (row.style.display === 'flex') {
+    row.style.display = 'none';
+    card.classList.remove('editing');
+  } else {
+    card.classList.add('expanded', 'editing');
+    (document.getElementById('details-' + id) as HTMLElement).style.display = 'none';
+    row.style.display = 'flex';
+    setTimeout(() => {
+      const ta = document.getElementById('enotes-' + id) as HTMLTextAreaElement;
+      if (ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
+    }, 0);
+  }
 }
 function cancelEdit(id: number): void {
   (document.getElementById('edit-' + id) as HTMLElement).style.display = 'none';
-  (document.getElementById('sc-' + id) as HTMLElement).classList.remove('editing');
+  const card = document.getElementById('sc-' + id) as HTMLElement;
+  card.classList.remove('editing');
+  (document.getElementById('details-' + id) as HTMLElement).style.display = 'block';
 }
 async function saveEdit(id: number): Promise<void> {
   const res = calcEditDur(id); if (!res) return;
@@ -317,6 +359,7 @@ async function saveEdit(id: number): Promise<void> {
   sessions[idx].startTs = res.start.getTime();
   sessions[idx].endTs = res.end.getTime();
   sessions[idx].durationMin = res.dur;
+  sessions[idx].notes = (document.getElementById('enotes-' + id) as HTMLTextAreaElement).value.trim() || undefined;
   renderSessions(); updateTotal(); await saveToFile();
 }
 async function deleteSession(id: number): Promise<void> {
@@ -341,6 +384,7 @@ window.cancelEdit = cancelEdit;
 window.saveEdit = saveEdit;
 window.deleteSession = deleteSession;
 window.updateEditResult = updateEditResult;
+window.toggleCard  = toggleCard;
 window.tbMinimize = () => getCurrentWindow().minimize();
 window.tbMaximize = () => getCurrentWindow().toggleMaximize();
 window.tbClose = () => getCurrentWindow().close();
