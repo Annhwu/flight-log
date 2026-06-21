@@ -267,6 +267,7 @@ function renderSessions(): void {
       </div>
       <div class="s-dur">${durLabel(s.durationMin)}</div>
       <button class="btn-sm" onclick="toggleEdit(${s.id})">Éditer</button>
+      <button class="btn-danger" onclick="deleteSession(${s.id})">Supprimer</button>
       <div class="edit-row" id="edit-${s.id}">
         <div class="edit-block">
           <div class="edit-block-label">Début</div>
