@@ -15,7 +15,7 @@
       {
         "title": "Flight Log",
         "width": 780,
-        "decorations": true,
+        "decorations": false,
         "resizable": true,
         "fullscreen": false
       }

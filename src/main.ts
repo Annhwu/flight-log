@@ -1,6 +1,8 @@
 // This file is a module (has top-level imports/exports) so declare global works.
 export {};
 
+import { getCurrentWindow } from '@tauri-apps/api/window';
+
 // ─── Types ─────────────────────────────────────────────────────────────────
 
 interface Session {
@@ -45,6 +47,9 @@ declare global {
     saveEdit: (id: number) => Promise<void>;
     deleteSession: (id: number) => Promise<void>;
     updateEditResult: (id: number) => void;
+    tbMinimize: () => void;
+    tbMaximize: () => void;
+    tbClose: () => void;
   }
 }
 
@@ -179,11 +184,11 @@ function toggleSession(): void {
   const btn = document.getElementById('btn-toggle') as HTMLButtonElement;
   if (!activeStart) {
     activeStart = new Date();
-    btn.textContent = '■ VOL OFF';
+    btn.textContent = '■ Atterrir';
     btn.classList.add('active');
     const siLabel = document.getElementById('si-label');
     const siTime  = document.getElementById('si-time');
-    if (siLabel) siLabel.textContent = 'SESSION EN COURS';
+    if (siLabel) siLabel.textContent = 'Session en cours';
     if (siTime)  siTime.textContent  = fmtDate(activeStart) + ' — ' + fmtTime(activeStart);
     elapsedInterval = window.setInterval(updateElapsed, 1000);
     updateElapsed();
@@ -197,12 +202,12 @@ function toggleSession(): void {
       durationMin: (end.getTime() - activeStart.getTime()) / 60000,
     });
     activeStart = null;
-    btn.textContent = '▶ VOL ON';
+    btn.textContent = '▶ Décoller';
     btn.classList.remove('active');
     const siLabel   = document.getElementById('si-label');
     const siTime    = document.getElementById('si-time');
     const siElapsed = document.getElementById('si-elapsed');
-    if (siLabel)   siLabel.textContent   = 'EN ATTENTE';
+    if (siLabel)   siLabel.textContent   = 'En attente';
     if (siTime)    siTime.textContent    = '--:--:--';
     if (siElapsed) siElapsed.textContent = '';
     renderSessions();
@@ -246,7 +251,7 @@ function renderSessions(): void {
   const list = document.getElementById('sessions-list') as HTMLElement;
   const sc   = document.getElementById('session-count') as HTMLElement;
   if (!sessions.length) {
-    list.innerHTML = '<div id="empty-msg">AUCUNE SESSION ENREGISTRÉE <span id="blink">_</span></div>';
+    list.innerHTML = '<div id="empty-msg">Aucune session enregistrée <span id="blink">_</span></div>';
     sc.textContent = '';
     return;
   }
@@ -258,38 +263,38 @@ function renderSessions(): void {
     return `<div class="session-card" id="sc-${s.id}">
       <div class="s-num">#${pad(num)}</div>
       <div class="s-times">
-        <div class="row">DÉB&nbsp;<span>${fmtDate(start)} ${pad(start.getHours())}:${pad(start.getMinutes())}</span></div>
-        <div class="row">FIN&nbsp;<span>${fmtDate(end)} ${pad(end.getHours())}:${pad(end.getMinutes())}</span></div>
+        <div class="row">Déb&nbsp;<span>${fmtDate(start)} ${pad(start.getHours())}:${pad(start.getMinutes())}</span></div>
+        <div class="row">Fin&nbsp;<span>${fmtDate(end)} ${pad(end.getHours())}:${pad(end.getMinutes())}</span></div>
       </div>
       <div class="s-dur">${durLabel(s.durationMin)}</div>
-      <button class="btn-sm" onclick="toggleEdit(${s.id})">ÉDITER</button>
+      <button class="btn-sm" onclick="toggleEdit(${s.id})">Éditer</button>
       <div class="edit-row" id="edit-${s.id}">
         <div class="edit-block">
-          <div class="edit-block-label">DÉBUT</div>
+          <div class="edit-block-label">Début</div>
           <div class="edit-fields-row">
-            <div class="ef-group"><label>JOUR</label><input type="date" id="edate1-${s.id}" value="${fmtDateInput(start)}" oninput="updateEditResult(${s.id})"></div>
+            <div class="ef-group"><label>Jour</label><input type="date" id="edate1-${s.id}" value="${fmtDateInput(start)}" oninput="updateEditResult(${s.id})"></div>
             <div class="ef-sep">—</div>
-            <div class="ef-group"><label>H</label><input type="number" id="eh1-${s.id}" min="0" max="23" value="${start.getHours()}" oninput="updateEditResult(${s.id})"></div>
-            <div class="ef-group"><label>MIN</label><input type="number" id="em1-${s.id}" min="0" max="59" value="${start.getMinutes()}" oninput="updateEditResult(${s.id})"></div>
+            <div class="ef-group"><label>h</label><input type="number" id="eh1-${s.id}" min="0" max="23" value="${start.getHours()}" oninput="updateEditResult(${s.id})"></div>
+            <div class="ef-group"><label>min</label><input type="number" id="em1-${s.id}" min="0" max="59" value="${start.getMinutes()}" oninput="updateEditResult(${s.id})"></div>
           </div>
         </div>
         <div class="edit-block">
-          <div class="edit-block-label">FIN</div>
+          <div class="edit-block-label">Fin</div>
           <div class="edit-fields-row">
-            <div class="ef-group"><label>JOUR</label><input type="date" id="edate2-${s.id}" value="${fmtDateInput(end)}" oninput="updateEditResult(${s.id})"></div>
+            <div class="ef-group"><label>Jour</label><input type="date" id="edate2-${s.id}" value="${fmtDateInput(end)}" oninput="updateEditResult(${s.id})"></div>
             <div class="ef-sep">—</div>
-            <div class="ef-group"><label>H</label><input type="number" id="eh2-${s.id}" min="0" max="23" value="${end.getHours()}" oninput="updateEditResult(${s.id})"></div>
-            <div class="ef-group"><label>MIN</label><input type="number" id="em2-${s.id}" min="0" max="59" value="${end.getMinutes()}" oninput="updateEditResult(${s.id})"></div>
+            <div class="ef-group"><label>h</label><input type="number" id="eh2-${s.id}" min="0" max="23" value="${end.getHours()}" oninput="updateEditResult(${s.id})"></div>
+            <div class="ef-group"><label>min</label><input type="number" id="em2-${s.id}" min="0" max="59" value="${end.getMinutes()}" oninput="updateEditResult(${s.id})"></div>
           </div>
         </div>
         <div class="edit-result">
-          <span class="res-label">DURÉE CALCULÉE</span>
+          <span class="res-label">Durée calculée</span>
           <span class="res-dur" id="res-dur-${s.id}">${durLabel(s.durationMin)}</span>
         </div>
         <div class="edit-actions">
-          <button class="btn-sm" onclick="saveEdit(${s.id})">VALIDER</button>
-          <button class="btn-sm" onclick="cancelEdit(${s.id})">ANNULER</button>
-          <button class="btn-danger" onclick="deleteSession(${s.id})">SUPPRIMER</button>
+          <button class="btn-sm" onclick="saveEdit(${s.id})">Valider</button>
+          <button class="btn-sm" onclick="cancelEdit(${s.id})">Annuler</button>
+          <button class="btn-danger" onclick="deleteSession(${s.id})">Supprimer</button>
         </div>
       </div>
     </div>`;
@@ -321,7 +326,7 @@ async function deleteSession(id: number): Promise<void> {
 
 // ─── Indicateur de sauvegarde ──────────────────────────────────────────────
 
-document.body.insertAdjacentHTML('beforeend', '<div id="save-indicator">✓ SAUVEGARDÉ</div>');
+document.body.insertAdjacentHTML('beforeend', '<div id="save-indicator">✓ Sauvegardé</div>');
 
 // ─── Exposer les fonctions au HTML inline ──────────────────────────────────
 
@@ -336,6 +341,9 @@ window.cancelEdit     = cancelEdit;
 window.saveEdit       = saveEdit;
 window.deleteSession  = deleteSession;
 window.updateEditResult = updateEditResult;
+window.tbMinimize = () => getCurrentWindow().minimize();
+window.tbMaximize = () => getCurrentWindow().toggleMaximize();
+window.tbClose    = () => getCurrentWindow().close();
 
 // ─── Démarrage ─────────────────────────────────────────────────────────────
 
