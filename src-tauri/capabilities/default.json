@@ -4,6 +4,6 @@
   "description": "Permissions par défaut",
   "windows": ["main"],
   "permissions": [
-    "core:default"
+    "dialog:default"
   ]
 }

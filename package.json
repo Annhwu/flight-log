@@ -8,5 +8,8 @@
   "devDependencies": {
     "@tauri-apps/cli": "^2",
     "serve": "^14"
+  },
+  "dependencies": {
+    "@tauri-apps/plugin-dialog": "^2.7.1"
   }
 }
