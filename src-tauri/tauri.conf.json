@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "identifier": "com.flight.log",
   "build": {
-    "frontendDist": "../src",
+    "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
     "beforeDevCommand": "npm run dev"
   },
