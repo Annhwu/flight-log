@@ -1,21 +1,24 @@
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DCS Flight Log</title>
-  <link rel="stylesheet" href="styles.css">
+  <meta name="description" content="Journal de vol DCS — enregistrez et consultez vos sessions de vol.">
+  <link rel="stylesheet" href="./src/styles.css">
 </head>
+
 <body>
   <div id="dcs-root">
     <div id="header">
       <div id="header-left">
-        <div id="header-title">■ DCS FLIGHT LOG</div>
-        <div id="header-sub">JOURNAL DE VOL STANDALONE</div>
+        <div id="header-title">FLIGHT LOG</div>
+        <div id="header-sub">JOURNAL DE VOL</div>
       </div>
       <div id="total-box">
         <div id="total-label">TOTAL HEURES</div>
-        <div id="total-hours">050h 00m</div>
+        <div id="total-hours">00h 00m</div>
       </div>
     </div>
     <div id="main">
@@ -48,10 +51,12 @@
         <label>H :</label><input type="number" id="steam-h-inp" min="0" value="0">
         <label>MIN :</label><input type="number" id="steam-m-inp" min="0" max="59" value="0">
         <button class="btn-sm" onclick="saveSteam()">OK</button>
-        <button class="btn-sm" onclick="document.getElementById('steam-input-row').style.display='none'">ANNULER</button>
+        <button class="btn-sm"
+          onclick="document.getElementById('steam-input-row').style.display='none'">ANNULER</button>
       </div>
     </div>
   </div>
-  <script type="module" src="main.js"></script>
+  <script type="module" src="./src/main.ts"></script>
 </body>
+
 </html>
