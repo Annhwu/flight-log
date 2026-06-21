@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DCS Flight Log</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="dcs-root">
+    <div id="header">
+      <div id="header-left">
+        <div id="header-title">■ DCS FLIGHT LOG</div>
+        <div id="header-sub">JOURNAL DE VOL STANDALONE</div>
+      </div>
+      <div id="total-box">
+        <div id="total-label">TOTAL HEURES</div>
+        <div id="total-hours">050h 00m</div>
+      </div>
+    </div>
+    <div id="main">
+      <div id="session-zone">
+        <div id="session-info">
+          <div id="si-label">EN ATTENTE</div>
+          <div id="si-time">--:--:--</div>
+          <div id="si-elapsed"></div>
+        </div>
+        <button id="btn-toggle" class="btn" onclick="toggleSession()">▶ VOL ON</button>
+      </div>
+      <div id="io-bar">
+        <button class="btn-sm" onclick="exportJSON()">⬇ EXPORTER JSON</button>
+        <button class="btn-sm" onclick="importJSON()">⬆ IMPORTER JSON</button>
+        <input type="file" id="file-input" accept=".json" style="display:none" onchange="loadFile(event)">
+      </div>
+      <hr>
+      <div id="log-header">
+        <div id="log-title">HISTORIQUE SESSIONS</div>
+        <div id="session-count"></div>
+      </div>
+      <div id="sessions-list">
+        <div id="empty-msg">AUCUNE SESSION ENREGISTRÉE <span id="blink">_</span></div>
+      </div>
+      <div id="steam-note">
+        <span>■ STEAM (importé) : <b id="steam-display">00h 00m</b></span>
+        <button class="btn-sm" onclick="toggleSteamEdit()">MODIFIER</button>
+      </div>
+      <div id="steam-input-row">
+        <label>H :</label><input type="number" id="steam-h-inp" min="0" value="0">
+        <label>MIN :</label><input type="number" id="steam-m-inp" min="0" max="59" value="0">
+        <button class="btn-sm" onclick="saveSteam()">OK</button>
+        <button class="btn-sm" onclick="document.getElementById('steam-input-row').style.display='none'">ANNULER</button>
+      </div>
+    </div>
+  </div>
+  <script src="main.js"></script>
+</body>
+</html>

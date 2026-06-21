@@ -1,0 +1,12 @@
+{
+  "name": "flight-log",
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "serve src -p 1420",
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2",
+    "serve": "^14"
+  }
+}
