@@ -1,5 +1,5 @@
 // This file is a module (has top-level imports/exports) so declare global works.
-export {};
+export { };
 
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
@@ -183,12 +183,12 @@ function toggleSession(): void {
   const btn = document.getElementById('btn-toggle') as HTMLButtonElement;
   if (!activeStart) {
     activeStart = new Date();
-    btn.textContent = '■ Atterrir';
+    btn.textContent = '■ OFF';
     btn.classList.add('active');
     const siLabel = document.getElementById('si-label');
-    const siTime  = document.getElementById('si-time');
+    const siTime = document.getElementById('si-time');
     if (siLabel) siLabel.textContent = 'Session en cours';
-    if (siTime)  siTime.textContent  = fmtDate(activeStart) + ' — ' + fmtTime(activeStart);
+    if (siTime) siTime.textContent = fmtDate(activeStart) + ' — ' + fmtTime(activeStart);
     elapsedInterval = window.setInterval(updateElapsed, 1000);
     updateElapsed();
   } else {
@@ -201,13 +201,13 @@ function toggleSession(): void {
       durationMin: (end.getTime() - activeStart.getTime()) / 60000,
     });
     activeStart = null;
-    btn.textContent = '▶ Décoller';
+    btn.textContent = '▶ ON';
     btn.classList.remove('active');
-    const siLabel   = document.getElementById('si-label');
-    const siTime    = document.getElementById('si-time');
+    const siLabel = document.getElementById('si-label');
+    const siTime = document.getElementById('si-time');
     const siElapsed = document.getElementById('si-elapsed');
-    if (siLabel)   siLabel.textContent   = 'En attente';
-    if (siTime)    siTime.textContent    = '--:--:--';
+    if (siLabel) siLabel.textContent = 'En attente';
+    if (siTime) siTime.textContent = '--:--:--';
     if (siElapsed) siElapsed.textContent = '';
     renderSessions();
     updateTotal();
@@ -226,21 +226,21 @@ function updateElapsed(): void {
 function calcEditDur(id: number): EditResult | null {
   const dv1 = (document.getElementById('edate1-' + id) as HTMLInputElement).value;
   const dv2 = (document.getElementById('edate2-' + id) as HTMLInputElement).value;
-  const h1  = parseInt((document.getElementById('eh1-' + id)  as HTMLInputElement).value) || 0;
-  const m1  = parseInt((document.getElementById('em1-' + id)  as HTMLInputElement).value) || 0;
-  const h2  = parseInt((document.getElementById('eh2-' + id)  as HTMLInputElement).value) || 0;
-  const m2  = parseInt((document.getElementById('em2-' + id)  as HTMLInputElement).value) || 0;
+  const h1 = parseInt((document.getElementById('eh1-' + id) as HTMLInputElement).value) || 0;
+  const m1 = parseInt((document.getElementById('em1-' + id) as HTMLInputElement).value) || 0;
+  const h2 = parseInt((document.getElementById('eh2-' + id) as HTMLInputElement).value) || 0;
+  const m2 = parseInt((document.getElementById('em2-' + id) as HTMLInputElement).value) || 0;
   if (!dv1 || !dv2) return null;
   const start = new Date(dv1 + 'T' + pad(h1) + ':' + pad(m1));
-  const end   = new Date(dv2 + 'T' + pad(h2) + ':' + pad(m2));
-  const dur   = (end.getTime() - start.getTime()) / 60000;
+  const end = new Date(dv2 + 'T' + pad(h2) + ':' + pad(m2));
+  const dur = (end.getTime() - start.getTime()) / 60000;
   if (dur <= 0) return null;
   return { start, end, dur };
 }
 
 function updateEditResult(id: number): void {
   const res = calcEditDur(id);
-  const el  = document.getElementById('res-dur-' + id);
+  const el = document.getElementById('res-dur-' + id);
   if (el) el.textContent = res ? durLabel(res.dur) : '--';
 }
 
@@ -248,7 +248,7 @@ function updateEditResult(id: number): void {
 
 function renderSessions(): void {
   const list = document.getElementById('sessions-list') as HTMLElement;
-  const sc   = document.getElementById('session-count') as HTMLElement;
+  const sc = document.getElementById('session-count') as HTMLElement;
   if (!sessions.length) {
     list.innerHTML = '<div id="empty-msg">Aucune session enregistrée <span id="blink">_</span></div>';
     sc.textContent = '';
@@ -257,8 +257,8 @@ function renderSessions(): void {
   sc.textContent = sessions.length + ' session(s) · ' + minsToHM(totalSAMin());
   list.innerHTML = sessions.map((s, i) => {
     const start = new Date(s.startTs);
-    const end   = new Date(s.endTs);
-    const num   = sessions.length - i;
+    const end = new Date(s.endTs);
+    const num = sessions.length - i;
     return `<div class="session-card" id="sc-${s.id}">
       <div class="s-num">#${pad(num)}</div>
       <div class="s-times">
@@ -302,7 +302,7 @@ function renderSessions(): void {
 }
 
 function toggleEdit(id: number): void {
-  const row  = document.getElementById('edit-' + id) as HTMLElement;
+  const row = document.getElementById('edit-' + id) as HTMLElement;
   const card = document.getElementById('sc-' + id) as HTMLElement;
   if (row.style.display === 'flex') { row.style.display = 'none'; card.classList.remove('editing'); }
   else { row.style.display = 'flex'; card.classList.add('editing'); }
@@ -314,8 +314,8 @@ function cancelEdit(id: number): void {
 async function saveEdit(id: number): Promise<void> {
   const res = calcEditDur(id); if (!res) return;
   const idx = sessions.findIndex(s => s.id === id); if (idx < 0) return;
-  sessions[idx].startTs     = res.start.getTime();
-  sessions[idx].endTs       = res.end.getTime();
+  sessions[idx].startTs = res.start.getTime();
+  sessions[idx].endTs = res.end.getTime();
   sessions[idx].durationMin = res.dur;
   renderSessions(); updateTotal(); await saveToFile();
 }
@@ -330,20 +330,20 @@ document.body.insertAdjacentHTML('beforeend', '<div id="save-indicator">✓ Sauv
 
 // ─── Exposer les fonctions au HTML inline ──────────────────────────────────
 
-window.toggleSession   = toggleSession;
-window.exportJSON      = exportJSON;
-window.importJSON      = importJSON;
-window.loadFile        = loadFile;
+window.toggleSession = toggleSession;
+window.exportJSON = exportJSON;
+window.importJSON = importJSON;
+window.loadFile = loadFile;
 window.toggleSteamEdit = toggleSteamEdit;
-window.saveSteam       = saveSteam;
-window.toggleEdit      = toggleEdit;
-window.cancelEdit      = cancelEdit;
-window.saveEdit        = saveEdit;
-window.deleteSession   = deleteSession;
+window.saveSteam = saveSteam;
+window.toggleEdit = toggleEdit;
+window.cancelEdit = cancelEdit;
+window.saveEdit = saveEdit;
+window.deleteSession = deleteSession;
 window.updateEditResult = updateEditResult;
 window.tbMinimize = () => getCurrentWindow().minimize();
 window.tbMaximize = () => getCurrentWindow().toggleMaximize();
-window.tbClose    = () => getCurrentWindow().close();
+window.tbClose = () => getCurrentWindow().close();
 
 // ─── Démarrage ─────────────────────────────────────────────────────────────
 

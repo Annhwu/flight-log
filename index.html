@@ -11,7 +11,8 @@
 
 <body>
   <div id="titlebar" data-tauri-drag-region>
-    <div id="titlebar-title" data-tauri-drag-region><img id="titlebar-icon" src="./src/icon.png" alt=""> Flight Log</div>
+    <div id="titlebar-title" data-tauri-drag-region><img id="titlebar-icon" src="./src/icon.png" alt=""> Flight Log
+    </div>
     <div id="titlebar-controls">
       <button id="tb-minimize" onclick="tbMinimize()">—</button>
       <button id="tb-maximize" onclick="tbMaximize()">□</button>
@@ -19,50 +20,50 @@
     </div>
   </div>
   <div class="page">
-  <div id="dcs-root">
-    <div id="header">
-      <div id="header-left">
-        <div id="header-title">Journal de Vol</div>
-      </div>
-      <div id="total-box">
-        <span id="total-label">Total :</span><span id="total-hours">00h 00m</span>
-      </div>
-    </div>
-    <div id="main">
-      <div id="session-zone">
-        <div id="session-info">
-          <div id="si-label">En attente</div>
-          <div id="si-time">--:--:--</div>
-          <div id="si-elapsed"></div>
+    <div id="dcs-root">
+      <div id="header">
+        <div id="header-left">
+          <div id="header-title">Journal de Vol</div>
         </div>
-        <button id="btn-toggle" class="btn" onclick="toggleSession()">▶ Décoller</button>
+        <div id="total-box">
+          <span id="total-label">Total :</span><span id="total-hours">00h 00m</span>
+        </div>
       </div>
-      <div id="io-bar">
-        <button class="btn-sm" onclick="exportJSON()">Exporter</button>
-        <button class="btn-sm" onclick="importJSON()">Importer</button>
-        <input type="file" id="file-input" accept=".json" style="display:none" onchange="loadFile(event)">
-      </div>
-      <hr>
-      <div id="log-header">
-        <div id="log-title">Historique</div>
-        <div id="session-count"></div>
-      </div>
-      <div id="sessions-list">
-        <div id="empty-msg">Aucune session enregistrée <span id="blink">_</span></div>
-      </div>
-      <div id="steam-note">
-        <span>■ Steam (importé) : <b id="steam-display">00h 00m</b></span>
-        <button class="btn-sm" onclick="toggleSteamEdit()">Modifier</button>
-      </div>
-      <div id="steam-input-row">
-        <label>h :</label><input type="number" id="steam-h-inp" min="0" value="0">
-        <label>min :</label><input type="number" id="steam-m-inp" min="0" max="59" value="0">
-        <button class="btn-sm" onclick="saveSteam()">Ok</button>
-        <button class="btn-sm"
-          onclick="document.getElementById('steam-input-row').style.display='none'">Annuler</button>
+      <div id="main">
+        <div id="session-zone">
+          <div id="session-info">
+            <div id="si-label">En attente</div>
+            <div id="si-time">--:--:--</div>
+            <div id="si-elapsed"></div>
+          </div>
+          <button id="btn-toggle" class="btn" onclick="toggleSession()">▶ ON</button>
+        </div>
+        <div id="io-bar">
+          <button class="btn-sm" onclick="exportJSON()">Exporter</button>
+          <button class="btn-sm" onclick="importJSON()">Importer</button>
+          <input type="file" id="file-input" accept=".json" style="display:none" onchange="loadFile(event)">
+        </div>
+        <hr>
+        <div id="log-header">
+          <div id="log-title">Historique</div>
+          <div id="session-count"></div>
+        </div>
+        <div id="sessions-list">
+          <div id="empty-msg">Aucune session enregistrée <span id="blink">_</span></div>
+        </div>
+        <div id="steam-note">
+          <span>■ Steam (importé) : <b id="steam-display">00h 00m</b></span>
+          <button class="btn-sm" onclick="toggleSteamEdit()">Modifier</button>
+        </div>
+        <div id="steam-input-row">
+          <label>h :</label><input type="number" id="steam-h-inp" min="0" value="0">
+          <label>min :</label><input type="number" id="steam-m-inp" min="0" max="59" value="0">
+          <button class="btn-sm" onclick="saveSteam()">Ok</button>
+          <button class="btn-sm"
+            onclick="document.getElementById('steam-input-row').style.display='none'">Annuler</button>
+        </div>
       </div>
     </div>
-  </div>
   </div>
   <script type="module" src="./src/main.ts"></script>
 </body>
