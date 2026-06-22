@@ -1,3 +1,4 @@
+import { getCurrentWindow } from '@tauri-apps/api/window';
 async function invoke(cmd, args) {
     return window.__TAURI_INTERNALS__.invoke(cmd, args);
 }
@@ -8,6 +9,7 @@ let activeStart = null;
 let elapsedInterval = null;
 // ─── Utilitaires ───────────────────────────────────────────────────────────
 function pad(n) { return String(n).padStart(2, '0'); }
+function escapeHtml(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 function fmtTime(d) { return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); }
 function fmtDate(d) { return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
 function fmtDateInput(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
@@ -115,12 +117,12 @@ function toggleSession() {
     const btn = document.getElementById('btn-toggle');
     if (!activeStart) {
         activeStart = new Date();
-        btn.textContent = '■ VOL OFF';
+        btn.textContent = '■ OFF';
         btn.classList.add('active');
         const siLabel = document.getElementById('si-label');
         const siTime = document.getElementById('si-time');
         if (siLabel)
-            siLabel.textContent = 'SESSION EN COURS';
+            siLabel.textContent = 'Session en cours';
         if (siTime)
             siTime.textContent = fmtDate(activeStart) + ' — ' + fmtTime(activeStart);
         elapsedInterval = window.setInterval(updateElapsed, 1000);
@@ -137,13 +139,13 @@ function toggleSession() {
             durationMin: (end.getTime() - activeStart.getTime()) / 60000,
         });
         activeStart = null;
-        btn.textContent = '▶ VOL ON';
+        btn.textContent = '▶ ON';
         btn.classList.remove('active');
         const siLabel = document.getElementById('si-label');
         const siTime = document.getElementById('si-time');
         const siElapsed = document.getElementById('si-elapsed');
         if (siLabel)
-            siLabel.textContent = 'EN ATTENTE';
+            siLabel.textContent = 'En attente';
         if (siTime)
             siTime.textContent = '--:--:--';
         if (siElapsed)
@@ -188,7 +190,7 @@ function renderSessions() {
     const list = document.getElementById('sessions-list');
     const sc = document.getElementById('session-count');
     if (!sessions.length) {
-        list.innerHTML = '<div id="empty-msg">AUCUNE SESSION ENREGISTRÉE <span id="blink">_</span></div>';
+        list.innerHTML = '<div id="empty-msg">Aucune session enregistrée <span id="blink">_</span></div>';
         sc.textContent = '';
         return;
     }
@@ -197,45 +199,73 @@ function renderSessions() {
         const start = new Date(s.startTs);
         const end = new Date(s.endTs);
         const num = sessions.length - i;
-        return `<div class="session-card" id="sc-${s.id}">
+        const notesPreview = s.notes ? `<div class="s-notes">${escapeHtml(s.notes)}</div>` : '';
+        const notesFull = s.notes
+            ? `<div class="s-notes-full">${escapeHtml(s.notes).replace(/\n/g, '<br>')}</div>`
+            : `<div class="s-notes-empty">Aucune note pour ce vol.</div>`;
+        return `<div class="session-card" id="sc-${s.id}" onclick="toggleCard(${s.id})">
       <div class="s-num">#${pad(num)}</div>
       <div class="s-times">
-        <div class="row">DÉB&nbsp;<span>${fmtDate(start)} ${pad(start.getHours())}:${pad(start.getMinutes())}</span></div>
-        <div class="row">FIN&nbsp;<span>${fmtDate(end)} ${pad(end.getHours())}:${pad(end.getMinutes())}</span></div>
+        <div class="row">Déb&nbsp;<span>${fmtDate(start)} ${pad(start.getHours())}:${pad(start.getMinutes())}</span></div>
+        <div class="row">Fin&nbsp;<span>${fmtDate(end)} ${pad(end.getHours())}:${pad(end.getMinutes())}</span></div>
       </div>
       <div class="s-dur">${durLabel(s.durationMin)}</div>
-      <button class="btn-sm" onclick="toggleEdit(${s.id})">ÉDITER</button>
-      <div class="edit-row" id="edit-${s.id}">
+      <button class="btn-sm" onclick="event.stopPropagation();toggleEdit(${s.id})">Éditer</button>
+      <button class="btn-danger" onclick="event.stopPropagation();deleteSession(${s.id})">Supprimer</button>
+      ${notesPreview}
+      <div class="s-details" id="details-${s.id}">
+        ${notesFull}
+      </div>
+      <div class="edit-row" id="edit-${s.id}" onclick="event.stopPropagation()">
         <div class="edit-block">
-          <div class="edit-block-label">DÉBUT</div>
+          <div class="edit-block-label">Début</div>
           <div class="edit-fields-row">
-            <div class="ef-group"><label>JOUR</label><input type="date" id="edate1-${s.id}" value="${fmtDateInput(start)}" oninput="updateEditResult(${s.id})"></div>
+            <div class="ef-group"><label>Jour</label><input type="date" id="edate1-${s.id}" value="${fmtDateInput(start)}" oninput="updateEditResult(${s.id})"></div>
             <div class="ef-sep">—</div>
-            <div class="ef-group"><label>H</label><input type="number" id="eh1-${s.id}" min="0" max="23" value="${start.getHours()}" oninput="updateEditResult(${s.id})"></div>
-            <div class="ef-group"><label>MIN</label><input type="number" id="em1-${s.id}" min="0" max="59" value="${start.getMinutes()}" oninput="updateEditResult(${s.id})"></div>
+            <div class="ef-group"><label>h</label><input type="number" id="eh1-${s.id}" min="0" max="23" value="${start.getHours()}" oninput="updateEditResult(${s.id})"></div>
+            <div class="ef-group"><label>min</label><input type="number" id="em1-${s.id}" min="0" max="59" value="${start.getMinutes()}" oninput="updateEditResult(${s.id})"></div>
           </div>
         </div>
         <div class="edit-block">
-          <div class="edit-block-label">FIN</div>
+          <div class="edit-block-label">Fin</div>
           <div class="edit-fields-row">
-            <div class="ef-group"><label>JOUR</label><input type="date" id="edate2-${s.id}" value="${fmtDateInput(end)}" oninput="updateEditResult(${s.id})"></div>
+            <div class="ef-group"><label>Jour</label><input type="date" id="edate2-${s.id}" value="${fmtDateInput(end)}" oninput="updateEditResult(${s.id})"></div>
             <div class="ef-sep">—</div>
-            <div class="ef-group"><label>H</label><input type="number" id="eh2-${s.id}" min="0" max="23" value="${end.getHours()}" oninput="updateEditResult(${s.id})"></div>
-            <div class="ef-group"><label>MIN</label><input type="number" id="em2-${s.id}" min="0" max="59" value="${end.getMinutes()}" oninput="updateEditResult(${s.id})"></div>
+            <div class="ef-group"><label>h</label><input type="number" id="eh2-${s.id}" min="0" max="23" value="${end.getHours()}" oninput="updateEditResult(${s.id})"></div>
+            <div class="ef-group"><label>min</label><input type="number" id="em2-${s.id}" min="0" max="59" value="${end.getMinutes()}" oninput="updateEditResult(${s.id})"></div>
           </div>
         </div>
         <div class="edit-result">
-          <span class="res-label">DURÉE CALCULÉE</span>
+          <span class="res-label">Durée calculée</span>
           <span class="res-dur" id="res-dur-${s.id}">${durLabel(s.durationMin)}</span>
         </div>
+        <div class="notes-group">
+          <label class="edit-block-label">Notes du vol</label>
+          <textarea id="enotes-${s.id}" class="notes-textarea" placeholder="Commentaire..." oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'">${escapeHtml(s.notes || '')}</textarea>
+        </div>
         <div class="edit-actions">
-          <button class="btn-sm" onclick="saveEdit(${s.id})">VALIDER</button>
-          <button class="btn-sm" onclick="cancelEdit(${s.id})">ANNULER</button>
-          <button class="btn-danger" onclick="deleteSession(${s.id})">SUPPRIMER</button>
+          <button class="btn-sm" onclick="saveEdit(${s.id})">Valider</button>
+          <button class="btn-sm" onclick="cancelEdit(${s.id})">Annuler</button>
+          <button class="btn-danger" onclick="deleteSession(${s.id})">Supprimer</button>
         </div>
       </div>
     </div>`;
     }).join('');
+}
+function toggleCard(id) {
+    const card = document.getElementById('sc-' + id);
+    const details = document.getElementById('details-' + id);
+    const editRow = document.getElementById('edit-' + id);
+    const isOpen = card.classList.contains('expanded');
+    if (isOpen) {
+        card.classList.remove('expanded', 'editing');
+        details.style.display = 'none';
+        editRow.style.display = 'none';
+    }
+    else {
+        card.classList.add('expanded');
+        details.style.display = 'block';
+    }
 }
 function toggleEdit(id) {
     const row = document.getElementById('edit-' + id);
@@ -245,13 +275,23 @@ function toggleEdit(id) {
         card.classList.remove('editing');
     }
     else {
+        card.classList.add('expanded', 'editing');
+        document.getElementById('details-' + id).style.display = 'none';
         row.style.display = 'flex';
-        card.classList.add('editing');
+        setTimeout(() => {
+            const ta = document.getElementById('enotes-' + id);
+            if (ta) {
+                ta.style.height = 'auto';
+                ta.style.height = ta.scrollHeight + 'px';
+            }
+        }, 0);
     }
 }
 function cancelEdit(id) {
     document.getElementById('edit-' + id).style.display = 'none';
-    document.getElementById('sc-' + id).classList.remove('editing');
+    const card = document.getElementById('sc-' + id);
+    card.classList.remove('editing');
+    document.getElementById('details-' + id).style.display = 'block';
 }
 async function saveEdit(id) {
     const res = calcEditDur(id);
@@ -263,6 +303,7 @@ async function saveEdit(id) {
     sessions[idx].startTs = res.start.getTime();
     sessions[idx].endTs = res.end.getTime();
     sessions[idx].durationMin = res.dur;
+    sessions[idx].notes = document.getElementById('enotes-' + id).value.trim() || undefined;
     renderSessions();
     updateTotal();
     await saveToFile();
@@ -274,7 +315,7 @@ async function deleteSession(id) {
     await saveToFile();
 }
 // ─── Indicateur de sauvegarde ──────────────────────────────────────────────
-document.body.insertAdjacentHTML('beforeend', '<div id="save-indicator">✓ SAUVEGARDÉ</div>');
+document.body.insertAdjacentHTML('beforeend', '<div id="save-indicator">✓ Sauvegardé</div>');
 // ─── Exposer les fonctions au HTML inline ──────────────────────────────────
 window.toggleSession = toggleSession;
 window.exportJSON = exportJSON;
@@ -287,6 +328,10 @@ window.cancelEdit = cancelEdit;
 window.saveEdit = saveEdit;
 window.deleteSession = deleteSession;
 window.updateEditResult = updateEditResult;
+window.toggleCard = toggleCard;
+window.tbMinimize = () => getCurrentWindow().minimize();
+window.tbMaximize = () => getCurrentWindow().toggleMaximize();
+window.tbClose = () => getCurrentWindow().close();
 // ─── Démarrage ─────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
     await loadFromFile();
@@ -294,4 +339,3 @@ window.addEventListener('DOMContentLoaded', async () => {
     updateTotal();
     renderSessions();
 });
-export {};
