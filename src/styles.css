@@ -74,8 +74,8 @@ hr{border:none;border-top:1.5px solid var(--border);margin:12px 0;flex-shrink:0;
 .res-dur{font-family:var(--mono);font-size:16px;color:var(--ink);font-weight:bold;}
 .edit-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
 .session-card{cursor:pointer;}
-.s-notes{width:100%;font-size:12px;color:var(--ink2);font-style:italic;padding:6px 10px;background:var(--bg3);border-radius:4px;line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.session-card.expanded .s-notes{display:none;}
+.s-note-badge{font-size:11px;color:var(--ink3);font-style:italic;}
+.s-notes{display:none;}
 .s-details{display:none;width:100%;padding-top:8px;border-top:1px solid var(--border);}
 .s-notes-full{font-size:13px;color:var(--ink2);font-style:italic;line-height:1.6;white-space:pre-wrap;padding:8px 10px;background:var(--bg3);border-radius:4px;}
 .s-notes-empty{font-size:12px;color:var(--ink3);font-style:italic;padding:6px 10px;}

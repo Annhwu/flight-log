@@ -262,7 +262,8 @@ function renderSessions(): void {
     const start = new Date(s.startTs);
     const end   = new Date(s.endTs);
     const num   = sessions.length - i;
-    const notesPreview = s.notes ? `<div class="s-notes">${escapeHtml(s.notes)}</div>` : '';
+    const notesBadge   = s.notes ? `<div class="row s-note-badge">Commentaire du vol</div>` : '';
+    const notesPreview = '';
     const notesFull    = s.notes
       ? `<div class="s-notes-full">${escapeHtml(s.notes).replace(/\n/g, '<br>')}</div>`
       : `<div class="s-notes-empty">Aucune note pour ce vol.</div>`;
@@ -271,6 +272,7 @@ function renderSessions(): void {
       <div class="s-times">
         <div class="row">Déb&nbsp;<span>${fmtDate(start)} ${pad(start.getHours())}:${pad(start.getMinutes())}</span></div>
         <div class="row">Fin&nbsp;<span>${fmtDate(end)} ${pad(end.getHours())}:${pad(end.getMinutes())}</span></div>
+        ${notesBadge}
       </div>
       <div class="s-dur">${durLabel(s.durationMin)}</div>
       <button class="btn-sm" onclick="event.stopPropagation();toggleEdit(${s.id})">Éditer</button>
@@ -304,7 +306,7 @@ function renderSessions(): void {
         </div>
         <div class="notes-group">
           <label class="edit-block-label">Notes du vol</label>
-          <textarea id="enotes-${s.id}" class="notes-textarea" placeholder="Comment s'est passé ce vol ? Points à améliorer, impressions..." oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'">${escapeHtml(s.notes || '')}</textarea>
+          <textarea id="enotes-${s.id}" class="notes-textarea" placeholder="Commentaire..." oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'">${escapeHtml(s.notes || '')}</textarea>
         </div>
         <div class="edit-actions">
           <button class="btn-sm" onclick="saveEdit(${s.id})">Valider</button>
