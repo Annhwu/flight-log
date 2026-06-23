@@ -395,7 +395,6 @@ function renderSessions(): void {
     const nameLine     = s.name  ? `<div class="s-name">${escapeHtml(s.name)}</div>` : '';
     const notesBadge   = s.notes ? `<div class="row s-note-badge">Détail supplémentaire</div>` : '';
     const aircraftRow  = s.aircraft?.length ? `<div class="s-aircraft-row">${s.aircraft.map(a => `<span class="s-aircraft-tag">${escapeHtml(a)}</span>`).join('')}</div>` : '';
-    const notesPreview = '';
     const notesFull    = s.notes
       ? `<div class="s-notes-full">${escapeHtml(s.notes).replace(/\n/g, '<br>')}</div>`
       : `<div class="s-notes-empty">Aucune note pour ce vol.</div>`;
