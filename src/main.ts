@@ -10,12 +10,26 @@ interface Session {
   startTs: number;
   endTs: number;
   durationMin: number;
+  name?: string;
   notes?: string;
+  aircraft?: string[];
+}
+
+interface DCSModule {
+  name: string;
+  variants?: string[];
+  includes?: string[];
+}
+
+interface Profile {
+  name: string;
+  modules: string[];
 }
 
 interface AppData {
   steamMinutes: number;
   sessions: Session[];
+  profile?: Profile;
 }
 
 interface EditResult {
@@ -51,6 +65,14 @@ declare global {
     tbMaximize: () => void;
     tbClose: () => void;
     toggleCard: (id: number) => void;
+    confirmDebrief: () => Promise<void>;
+    skipDebrief: () => Promise<void>;
+    filterSessions: () => void;
+    showProfile: () => void;
+    hideProfile: () => void;
+    editProfile: () => void;
+    cancelEditProfile: () => void;
+    saveProfile: () => Promise<void>;
   }
 }
 
@@ -60,10 +82,68 @@ async function invoke<T>(cmd: string, args?: unknown): Promise<T> {
 
 // ─── State ─────────────────────────────────────────────────────────────────
 
+const DCS_MODULES: DCSModule[] = [
+  { name: 'A-10A FC', variants: ['A-10A'] },
+  { name: 'A-10C II' },
+  { name: 'AH-64D' },
+  { name: 'AJS-37' },
+  { name: 'AV-8B' },
+  { name: 'Bf 109 K-4' },
+  { name: 'C-101' },
+  { name: 'C-130J' },
+  { name: 'CH-47F' },
+  { name: 'Christen Eagle II' },
+  { name: 'F-100D' },
+  { name: 'F-14A/B/BU', variants: ['F-14A', 'F-14B', 'F-14BU'] },
+  { name: 'F-15C' },
+  { name: 'F-15E' },
+  { name: 'F-16C' },
+  { name: 'F-4E' },
+  { name: 'F-5E Belsimtek' },
+  { name: 'F-5E Remastered' },
+  { name: 'F-86F Belsimtek' },
+  { name: 'F-86F FC' },
+  { name: 'F/A-18C' },
+  { name: 'F4U-1D' },
+  { name: 'FC3', variants: ['A-10A', 'Su-27', 'Su-33', 'Su-25', 'F-15C', 'MiG-29A', 'MiG-29S'], includes: ['A-10A FC', 'Su-27 FC', 'Su-33 FC', 'Su-25 FC', 'F-15C', 'MiG-29 FC'] },
+  { name: 'Fw 190' },
+  { name: 'Fw 190 A-8' },
+  { name: 'Hawk T.1A' },
+  { name: 'I-16' },
+  { name: 'JF-17' },
+  { name: 'Ka-50' },
+  { name: 'L-39' },
+  { name: 'La-7' },
+  { name: 'M-2000C' },
+  { name: 'MB-339' },
+  { name: 'Mi-24P' },
+  { name: 'Mi-8MTV2' },
+  { name: 'MiG-15bis Belsimtek' },
+  { name: 'MiG-15bis FC' },
+  { name: 'MiG-19P' },
+  { name: 'MiG-21bis' },
+  { name: 'MiG-29 FC', variants: ['MiG-29A', 'MiG-29S'] },
+  { name: 'MiG-29A 9.12' },
+  { name: 'Mirage F1' },
+  { name: 'Mosquito FB VI' },
+  { name: 'OH-58D' },
+  { name: 'P-47D' },
+  { name: 'P-51D' },
+  { name: 'SA342' },
+  { name: 'Spitfire LF Mk. IX' },
+  { name: 'Su-25 FC', variants: ['Su-25'] },
+  { name: 'Su-27 FC', variants: ['Su-27'] },
+  { name: 'Su-33 FC', variants: ['Su-33'] },
+  { name: 'UH-1H' },
+  { name: 'Yak-52' },
+];
+
 let sessions: Session[] = [];
 let steamMinutes = 0;
 let activeStart: Date | null = null;
 let elapsedInterval: number | null = null;
+let pendingSession: Session | null = null;
+let profile: Profile = { name: '', modules: [] };
 
 // ─── Utilitaires ───────────────────────────────────────────────────────────
 
@@ -79,7 +159,7 @@ function durLabel(min: number): string { const d = Math.floor(min / 1440), h = M
 // ─── Sauvegarde automatique via Tauri ──────────────────────────────────────
 
 async function saveToFile(): Promise<void> {
-  const data: AppData = { steamMinutes, sessions };
+  const data: AppData = { steamMinutes, sessions, profile };
   await invoke('save_data', { content: JSON.stringify(data, null, 2) });
   showSaveIndicator();
 }
@@ -91,6 +171,7 @@ async function loadFromFile(): Promise<void> {
       const data: AppData = JSON.parse(content);
       steamMinutes = data.steamMinutes ?? 0;
       sessions = data.sessions ?? [];
+      profile  = data.profile  ?? { name: '', modules: [] };
     }
   } catch {
     // Pas de fichier existant, on démarre vide
@@ -197,12 +278,12 @@ function toggleSession(): void {
   } else {
     const end = new Date();
     if (elapsedInterval !== null) clearInterval(elapsedInterval);
-    sessions.unshift({
+    pendingSession = {
       id: Date.now(),
       startTs: activeStart.getTime(),
       endTs: end.getTime(),
       durationMin: (end.getTime() - activeStart.getTime()) / 60000,
-    });
+    };
     activeStart = null;
     btn.textContent = '▶ ON';
     btn.classList.remove('active');
@@ -212,10 +293,41 @@ function toggleSession(): void {
     if (siLabel) siLabel.textContent = 'En attente';
     if (siTime) siTime.textContent = '--:--:--';
     if (siElapsed) siElapsed.textContent = '';
-    renderSessions();
-    updateTotal();
-    saveToFile();
+    openDebrief();
   }
+}
+
+function openDebrief(): void {
+  if (!pendingSession) return;
+  const num = sessions.length + 1;
+  (document.getElementById('debrief-num') as HTMLElement).textContent = 'Vol #' + pad(num);
+  (document.getElementById('debrief-dur') as HTMLElement).textContent = durLabel(pendingSession.durationMin);
+  (document.getElementById('debrief-name') as HTMLInputElement).value = '';
+  (document.getElementById('debrief-notes') as HTMLTextAreaElement).value = '';
+  const picker = document.getElementById('debrief-aircraft-picker');
+  if (picker) picker.innerHTML = renderAircraftPickerHtml([]);
+  document.getElementById('debrief-overlay')!.classList.add('open');
+  setTimeout(() => (document.getElementById('debrief-name') as HTMLInputElement).focus(), 50);
+}
+
+async function confirmDebrief(): Promise<void> {
+  if (!pendingSession) return;
+  pendingSession.name  = (document.getElementById('debrief-name') as HTMLInputElement).value.trim() || undefined;
+  pendingSession.notes = (document.getElementById('debrief-notes') as HTMLTextAreaElement).value.trim() || undefined;
+  pendingSession.aircraft = Array.from(document.querySelectorAll<HTMLElement>('#debrief-aircraft-picker .aircraft-toggle.selected')).map(el => el.dataset.aircraft!).filter(Boolean);
+  if (!pendingSession.aircraft.length) pendingSession.aircraft = undefined;
+  sessions.unshift(pendingSession);
+  pendingSession = null;
+  document.getElementById('debrief-overlay')!.classList.remove('open');
+  renderSessions(); updateTotal(); await saveToFile();
+}
+
+async function skipDebrief(): Promise<void> {
+  if (!pendingSession) return;
+  sessions.unshift(pendingSession);
+  pendingSession = null;
+  document.getElementById('debrief-overlay')!.classList.remove('open');
+  renderSessions(); updateTotal(); await saveToFile();
 }
 
 function updateElapsed(): void {
@@ -252,32 +364,55 @@ function updateEditResult(id: number): void {
 function renderSessions(): void {
   const list = document.getElementById('sessions-list') as HTMLElement;
   const sc = document.getElementById('session-count') as HTMLElement;
+  const query = ((document.getElementById('search-input') as HTMLInputElement)?.value ?? '').trim().toLowerCase();
+
   if (!sessions.length) {
     list.innerHTML = '<div id="empty-msg">Aucune session enregistrée <span id="blink">_</span></div>';
     sc.textContent = '';
     return;
   }
+
+  const numbered = sessions.map((s, i) => ({ s, num: sessions.length - i }));
+  const filtered = query
+    ? numbered.filter(({ s, num }) => {
+        const q = query.replace(/^#/, '');
+        return String(num).includes(q)
+          || (s.name?.toLowerCase().includes(query) ?? false)
+          || (s.notes?.toLowerCase().includes(query) ?? false);
+      })
+    : numbered;
+
   sc.textContent = sessions.length + ' session(s) · ' + minsToHM(totalSAMin());
-  list.innerHTML = sessions.map((s, i) => {
+
+  if (!filtered.length) {
+    list.innerHTML = '<div id="empty-msg">Aucun vol ne correspond à la recherche.</div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(({ s, num }) => {
     const start = new Date(s.startTs);
     const end   = new Date(s.endTs);
-    const num   = sessions.length - i;
-    const notesBadge   = s.notes ? `<div class="row s-note-badge">Commentaire du vol</div>` : '';
+    const nameLine     = s.name  ? `<div class="s-name">${escapeHtml(s.name)}</div>` : '';
+    const notesBadge   = s.notes ? `<div class="row s-note-badge">Détail supplémentaire</div>` : '';
+    const aircraftRow  = s.aircraft?.length ? `<div class="s-aircraft-row">${s.aircraft.map(a => `<span class="s-aircraft-tag">${escapeHtml(a)}</span>`).join('')}</div>` : '';
     const notesPreview = '';
     const notesFull    = s.notes
       ? `<div class="s-notes-full">${escapeHtml(s.notes).replace(/\n/g, '<br>')}</div>`
       : `<div class="s-notes-empty">Aucune note pour ce vol.</div>`;
-    return `<div class="session-card" id="sc-${s.id}" onclick="toggleCard(${s.id})">
-      <div class="s-num">#${pad(num)}</div>
-      <div class="s-times">
-        <div class="row">Déb&nbsp;<span>${fmtDate(start)} ${pad(start.getHours())}:${pad(start.getMinutes())}</span></div>
-        <div class="row">Fin&nbsp;<span>${fmtDate(end)} ${pad(end.getHours())}:${pad(end.getMinutes())}</span></div>
-        ${notesBadge}
+    return `<div class="session-card" id="sc-${s.id}">
+      <div class="card-header" onclick="toggleCard(${s.id})">
+        <div class="s-num">#${pad(num)}</div>
+        <div class="s-times">
+          ${nameLine}
+          <div class="row">Déb&nbsp;<span>${fmtDate(start)} ${pad(start.getHours())}:${pad(start.getMinutes())}</span></div>
+          <div class="row">Fin&nbsp;<span>${fmtDate(end)} ${pad(end.getHours())}:${pad(end.getMinutes())}</span></div>
+          ${notesBadge}
+          ${aircraftRow}
+        </div>
+        <div class="s-dur">${durLabel(s.durationMin)}</div>
+        <button class="btn-sm" onclick="event.stopPropagation();toggleEdit(${s.id})">Éditer</button>
+        <button class="btn-danger" onclick="event.stopPropagation();deleteSession(${s.id})">Supprimer</button>
       </div>
-      <div class="s-dur">${durLabel(s.durationMin)}</div>
-      <button class="btn-sm" onclick="event.stopPropagation();toggleEdit(${s.id})">Éditer</button>
-      <button class="btn-danger" onclick="event.stopPropagation();deleteSession(${s.id})">Supprimer</button>
-      ${notesPreview}
       <div class="s-details" id="details-${s.id}">
         ${notesFull}
       </div>
@@ -305,7 +440,15 @@ function renderSessions(): void {
           <span class="res-dur" id="res-dur-${s.id}">${durLabel(s.durationMin)}</span>
         </div>
         <div class="notes-group">
-          <label class="edit-block-label">Notes du vol</label>
+          <label class="edit-block-label">Nom du vol</label>
+          <input type="text" id="ename-${s.id}" class="debrief-input" style="width:100%" placeholder="ex : Patrouille sur le Caucase" value="${escapeHtml(s.name || '')}">
+        </div>
+        <div class="notes-group">
+          <label class="edit-block-label">Appareil(s) volé(s)</label>
+          <div id="eaircraft-${s.id}" class="aircraft-picker-scroll">${renderAircraftPickerHtml(s.aircraft ?? [])}</div>
+        </div>
+        <div class="notes-group">
+          <label class="edit-block-label">Détail du vol</label>
           <textarea id="enotes-${s.id}" class="notes-textarea" placeholder="Commentaire..." oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'">${escapeHtml(s.notes || '')}</textarea>
         </div>
         <div class="edit-actions">
@@ -361,12 +504,111 @@ async function saveEdit(id: number): Promise<void> {
   sessions[idx].startTs = res.start.getTime();
   sessions[idx].endTs = res.end.getTime();
   sessions[idx].durationMin = res.dur;
+  sessions[idx].name  = (document.getElementById('ename-'  + id) as HTMLInputElement).value.trim() || undefined;
   sessions[idx].notes = (document.getElementById('enotes-' + id) as HTMLTextAreaElement).value.trim() || undefined;
+  const ac = Array.from(document.querySelectorAll<HTMLElement>(`#eaircraft-${id} .aircraft-toggle.selected`)).map(el => el.dataset.aircraft!).filter(Boolean);
+  sessions[idx].aircraft = ac.length ? ac : undefined;
   renderSessions(); updateTotal(); await saveToFile();
 }
 async function deleteSession(id: number): Promise<void> {
   sessions = sessions.filter(s => s.id !== id);
   renderSessions(); updateTotal(); await saveToFile();
+}
+
+// ─── Profil ────────────────────────────────────────────────────────────────
+
+function updateProfileBtn(): void {
+  const btn = document.getElementById('profile-btn');
+  if (btn) btn.textContent = profile.name ? profile.name.charAt(0).toUpperCase() : '?';
+}
+
+function showProfile(): void {
+  (document.getElementById('navbar') as HTMLElement).style.display = 'none';
+  (document.getElementById('main')  as HTMLElement).style.display = 'none';
+  const pg = document.getElementById('profile-page') as HTMLElement;
+  pg.style.display = 'flex';
+  renderProfileView();
+}
+
+function hideProfile(): void {
+  (document.getElementById('navbar') as HTMLElement).style.display = '';
+  (document.getElementById('main')  as HTMLElement).style.display = '';
+  (document.getElementById('profile-page') as HTMLElement).style.display = 'none';
+}
+
+function getEffectiveOwnedModuleNames(): Set<string> {
+  const owned = new Set(profile.modules);
+  DCS_MODULES.forEach(mod => {
+    if (owned.has(mod.name) && mod.includes) mod.includes.forEach(inc => owned.add(inc));
+  });
+  return owned;
+}
+
+function renderAircraftPickerHtml(selected: string[]): string {
+  if (!profile.modules.length) return `<span class="pf-empty">Aucun module configuré dans le profil.</span>`;
+  const ownedMods = DCS_MODULES.filter(mod => getEffectiveOwnedModuleNames().has(mod.name));
+  const modelsSet = new Set<string>();
+  ownedMods.forEach(mod => (mod.variants ?? [mod.name]).forEach(m => modelsSet.add(m)));
+  return Array.from(modelsSet).sort().map(model => {
+    const sel = selected.includes(model);
+    return `<button type="button" class="aircraft-toggle${sel ? ' selected' : ''}" onclick="this.classList.toggle('selected')" data-aircraft="${escapeHtml(model)}">${escapeHtml(model)}</button>`;
+  }).join('');
+}
+
+function renderProfileView(): void {
+  const content = document.getElementById('pf-content')!;
+  const initial = profile.name ? profile.name.charAt(0).toUpperCase() : '?';
+  const tags = profile.modules.length
+    ? profile.modules.map(m => `<span class="pf-module-tag">${escapeHtml(m)}</span>`).join('')
+    : `<span class="pf-empty">Aucun module sélectionné</span>`;
+  content.innerHTML = `
+    <div class="pf-view">
+      <div class="pf-avatar-section">
+        <div class="pf-avatar-lg">${initial}</div>
+        <div class="pf-pilot-name">${profile.name ? escapeHtml(profile.name) : '<span class="pf-empty">Nom non défini</span>'}</div>
+        <button class="btn-sm" onclick="editProfile()">Éditer le profil</button>
+      </div>
+      <div class="pf-section">
+        <div class="pf-section-title">Modules DCS possédés (${profile.modules.length})</div>
+        <div class="pf-modules-display">${tags}</div>
+      </div>
+    </div>`;
+}
+
+function editProfile(): void {
+  const content = document.getElementById('pf-content')!;
+  const grid = DCS_MODULES.map(mod => {
+    const sel = profile.modules.includes(mod.name);
+    return `<button type="button" class="pf-module-toggle${sel ? ' selected' : ''}" onclick="this.classList.toggle('selected')" data-module="${escapeHtml(mod.name)}">${escapeHtml(mod.name)}</button>`;
+  }).join('');
+  content.innerHTML = `
+    <div class="pf-edit">
+      <div class="pf-field">
+        <label class="pf-label">Nom du pilote</label>
+        <input type="text" id="pf-name-input" class="pf-input" value="${escapeHtml(profile.name)}" placeholder="">
+      </div>
+      <div class="pf-field">
+        <label class="pf-label">Modules DCS possédés</label>
+        <div class="pf-modules-grid">${grid}</div>
+      </div>
+      <div class="pf-edit-actions">
+        <button class="btn" onclick="saveProfile()">Sauvegarder</button>
+        <button class="btn-sm" onclick="cancelEditProfile()">Annuler</button>
+      </div>
+    </div>`;
+}
+
+function cancelEditProfile(): void { renderProfileView(); }
+
+async function saveProfile(): Promise<void> {
+  const name = (document.getElementById('pf-name-input') as HTMLInputElement).value.trim();
+  const modules = Array.from(document.querySelectorAll<HTMLElement>('.pf-module-toggle.selected'))
+    .map(el => el.dataset.module!).filter(Boolean);
+  profile = { name, modules };
+  updateProfileBtn();
+  renderProfileView();
+  renderSessions();
+  await saveToFile();
 }
 
 // ─── Indicateur de sauvegarde ──────────────────────────────────────────────
@@ -387,6 +629,14 @@ window.saveEdit = saveEdit;
 window.deleteSession = deleteSession;
 window.updateEditResult = updateEditResult;
 window.toggleCard  = toggleCard;
+window.confirmDebrief = confirmDebrief;
+window.skipDebrief = skipDebrief;
+window.filterSessions = renderSessions;
+window.showProfile = showProfile;
+window.hideProfile = hideProfile;
+window.editProfile = editProfile;
+window.cancelEditProfile = cancelEditProfile;
+window.saveProfile = saveProfile;
 window.tbMinimize = () => getCurrentWindow().minimize();
 window.tbMaximize = () => getCurrentWindow().toggleMaximize();
 window.tbClose = () => getCurrentWindow().close();
@@ -395,6 +645,7 @@ window.tbClose = () => getCurrentWindow().close();
 
 window.addEventListener('DOMContentLoaded', async () => {
   await loadFromFile();
+  updateProfileBtn();
   updateSteamDisplay();
   updateTotal();
   renderSessions();
