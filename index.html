@@ -25,11 +25,25 @@
         <div id="header-left">
           <div id="header-title">Journal de Vol</div>
         </div>
-        <div id="total-box">
-          <span id="total-label">Total :</span><span id="total-hours">00h 00m</span>
+        <div id="header-right">
+          <div id="total-box">
+            <span id="total-label">Total :</span><span id="total-hours">00h 00m</span>
+          </div>
+          <button id="profile-btn" class="profile-btn" onclick="showProfile()">?</button>
         </div>
       </div>
-      <div id="main">
+      <div id="profile-page" style="display:none">
+        <div id="pf-header">
+          <button class="btn-sm" onclick="hideProfile()">← Retour</button>
+          <div id="pf-title">Profil</div>
+        </div>
+        <div id="pf-content"></div>
+      </div>
+      <div id="navbar">
+        <div id="search-bar">
+          <input type="text" id="search-input" placeholder=" " oninput="filterSessions()">
+          <span id="search-hint">Rechercher par nom, #numéro ou description…</span>
+        </div>
         <div id="session-zone">
           <div id="session-info">
             <div id="si-label">En attente</div>
@@ -38,6 +52,8 @@
           </div>
           <button id="btn-toggle" class="btn" onclick="toggleSession()">▶ ON</button>
         </div>
+      </div>
+      <div id="main">
         <div id="io-bar">
           <button class="btn-sm" onclick="exportJSON()">Exporter JSON</button>
           <button class="btn-sm" onclick="importJSON()">Importer JSON</button>
@@ -62,6 +78,30 @@
           <button class="btn-sm"
             onclick="document.getElementById('steam-input-row').style.display='none'">Annuler</button>
         </div>
+      </div>
+    </div>
+  </div>
+  <div id="debrief-overlay">
+    <div id="debrief-modal">
+      <div class="debrief-header">
+        <div class="debrief-vol-num" id="debrief-num">Vol #01</div>
+        <div class="debrief-dur" id="debrief-dur">00h 00m</div>
+      </div>
+      <div class="debrief-field">
+        <label class="debrief-label">Nom du vol</label>
+        <input type="text" id="debrief-name" class="debrief-input" placeholder="ex : Patrouille sur le Caucase">
+      </div>
+      <div class="debrief-field">
+        <label class="debrief-label">Appareil(s) volé(s)</label>
+        <div id="debrief-aircraft-picker" class="aircraft-picker-scroll"></div>
+      </div>
+      <div class="debrief-field">
+        <label class="debrief-label">Commentaire</label>
+        <textarea id="debrief-notes" class="debrief-textarea" placeholder="Comment s'est passé le vol ?"></textarea>
+      </div>
+      <div class="debrief-actions">
+        <button class="btn" onclick="confirmDebrief()">Confirmer</button>
+        <button class="btn" onclick="skipDebrief()">Passer</button>
       </div>
     </div>
   </div>
