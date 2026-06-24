@@ -150,7 +150,6 @@ let elapsedInterval: number | null = null;
 let pendingSession: Session | null = null;
 let profile: Profile = { name: '', modules: [] };
 let settingsDirty = false;
-let pendingNav: (() => void) | null = null;
 
 // ─── Utilitaires ───────────────────────────────────────────────────────────
 
@@ -609,7 +608,7 @@ function getSettingsChanges(): string[] {
   return changes;
 }
 
-function checkSettingsDirty(nav: () => void): boolean {
+function checkSettingsDirty(_nav: () => void): boolean {
   if (!settingsDirty || (document.getElementById('settings-page') as HTMLElement).style.display === 'none') return false;
   const changes = getSettingsChanges();
   const msg = document.getElementById('st-confirm-msg')!;
@@ -623,7 +622,6 @@ function checkSettingsDirty(nav: () => void): boolean {
 function confirmSettingsLeave(save: boolean): void {
   (document.getElementById('st-confirm-overlay') as HTMLElement).style.display = 'none';
   if (save) saveSettings(); else cancelSettings();
-  pendingNav = null;
 }
 
 function toggleSection(titleEl: HTMLElement): void {
