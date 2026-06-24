@@ -23,19 +23,19 @@
     <div id="dcs-root">
       <div id="navbar">
         <div id="navbar-row1">
-          <div id="header-title">Journal de Vol</div>
+          <div id="header-title" data-i18n="app_title">Journal de Vol</div>
           <div id="navbar-row1-right">
             <div id="total-box">
-              <span id="total-label">Total :</span><span id="total-hours">00h 00m</span>
+              <span id="total-label" data-i18n="total_label">Total :</span><span id="total-hours">00h 00m</span>
             </div>
             <button id="profile-btn" class="profile-btn" onclick="showProfile()">?</button>
           </div>
         </div>
         <div id="navbar-row2">
           <div id="navbar-left">
-            <button class="nav-tab active" id="nav-historique" onclick="showHistorique()">Historique</button>
-            <button class="nav-tab" id="nav-new-flight" onclick="showNewFlight()">Nouveau vol</button>
-            <button class="nav-tab" id="nav-settings" onclick="showSettings()">Paramètres</button>
+            <button class="nav-tab active" id="nav-historique" onclick="showHistorique()" data-i18n="nav_history">Historique</button>
+            <button class="nav-tab" id="nav-new-flight" onclick="showNewFlight()" data-i18n="nav_new_flight">Nouveau vol</button>
+            <button class="nav-tab" id="nav-settings" onclick="showSettings()" data-i18n="nav_settings">Paramètres</button>
           </div>
           <div id="navbar-right">
             <div id="session-zone">
@@ -48,15 +48,15 @@
             </div>
             <div id="search-bar">
               <input type="text" id="search-input" placeholder=" " oninput="filterSessions()">
-              <span id="search-hint">Rechercher par nom, #numéro ou description…</span>
+              <span id="search-hint" data-i18n="search_hint">Rechercher par nom, #numéro ou description…</span>
             </div>
           </div>
           <button id="burger-btn" onclick="toggleBurger()" aria-label="Menu">&#9776;</button>
         </div>
         <div id="burger-menu">
-          <button class="nav-tab" id="burger-historique" onclick="showHistorique();closeBurger()">Historique</button>
-          <button class="nav-tab" onclick="showNewFlight();closeBurger()">Nouveau vol</button>
-          <button class="nav-tab" onclick="showSettings();closeBurger()">Paramètres</button>
+          <button class="nav-tab" id="burger-historique" onclick="showHistorique();closeBurger()" data-i18n="nav_history">Historique</button>
+          <button class="nav-tab" onclick="showNewFlight();closeBurger()" data-i18n="nav_new_flight">Nouveau vol</button>
+          <button class="nav-tab" onclick="showSettings();closeBurger()" data-i18n="nav_settings">Paramètres</button>
           <hr class="burger-sep">
           <div id="burger-session-zone">
             <div id="burger-si-label">En attente</div>
@@ -65,33 +65,43 @@
             <button class="btn" id="burger-btn-toggle" onclick="toggleSession()">▶ ON</button>
           </div>
           <hr class="burger-sep">
-          <input type="text" id="burger-search" class="burger-search-input" placeholder="Rechercher…" oninput="syncBurgerSearch()">
+          <input type="text" id="burger-search" class="burger-search-input" data-i18n-ph="search_placeholder" placeholder="Rechercher…" oninput="syncBurgerSearch()">
         </div>
       </div>
       <div id="settings-page" style="display:none">
         <div id="st-header">
-          <div id="st-title">Paramètres</div>
+          <div id="st-title" data-i18n="settings_title">Paramètres</div>
         </div>
         <div id="st-content">
           <div class="st-section">
-            <div class="st-section-title" onclick="toggleSection(this)"><span class="st-chevron">▾</span><span>Profil</span></div>
+            <div class="st-section-title" onclick="toggleSection(this)"><span class="st-chevron">▾</span><span data-i18n="settings_profile_section">Profil</span></div>
             <div class="st-section-body">
               <div class="st-btn-row">
-                <button class="btn-sm" onclick="exportJSON()">Exporter JSON</button>
-                <label class="btn-sm" for="file-input" style="cursor:pointer">Importer JSON</label>
+                <button class="btn-sm" onclick="exportJSON()" data-i18n="settings_export">Exporter JSON</button>
+                <label class="btn-sm" for="file-input" style="cursor:pointer" data-i18n="settings_import">Importer JSON</label>
                 <input type="file" id="file-input" accept=".json" style="display:none" onchange="loadFile(event)">
               </div>
               <label class="pf-checkbox-label">
                 <input type="checkbox" id="st-export-profile" onchange="onSettingChange()">
-                Inclure le profil dans l'export JSON
+                <span data-i18n="settings_include_profile">Inclure le profil dans l'export JSON</span>
               </label>
               <label class="pf-checkbox-label">
                 <input type="checkbox" id="st-import-profile" onchange="onSettingChange()">
-                Remplacer mon profil lors d'un import JSON
+                <span data-i18n="settings_replace_profile">Remplacer mon profil lors d'un import JSON</span>
               </label>
               <div class="edit-actions" style="margin-top:4px;">
-                <button class="btn-sm" onclick="saveSettings()">Sauvegarder</button>
-                <button class="btn-sm" onclick="cancelSettings()">Annuler</button>
+                <button class="btn-sm" onclick="saveSettings()" data-i18n="settings_save">Sauvegarder</button>
+                <button class="btn-sm" onclick="cancelSettings()" data-i18n="settings_cancel">Annuler</button>
+              </div>
+            </div>
+          </div>
+          <div class="st-section">
+            <div class="st-section-title" onclick="toggleSection(this)"><span class="st-chevron">▾</span><span data-i18n="settings_language">Langue</span></div>
+            <div class="st-section-body">
+              <div class="lang-switcher">
+                <button class="lang-btn" data-lang="fr" onclick="setLanguage('fr')">FR</button>
+                <button class="lang-btn" data-lang="en" onclick="setLanguage('en')">EN</button>
+                <button class="lang-btn" data-lang="ru" onclick="setLanguage('ru')">RU</button>
               </div>
             </div>
           </div>
@@ -99,75 +109,74 @@
       </div>
       <div id="new-flight-page" style="display:none">
         <div id="nf-header">
-          <div id="nf-title">Nouveau vol</div>
+          <div id="nf-title" data-i18n="new_flight_title">Nouveau vol</div>
         </div>
         <div id="nf-form">
           <div class="nf-times-col">
             <div class="nf-group">
-              <label class="edit-block-label">Début</label>
+              <label class="edit-block-label" data-i18n="new_flight_start">Début</label>
               <div class="nf-datetime-row">
-                <div class="ef-group"><label>Jour</label><input type="date" id="nf-date1" oninput="updateNewFlightResult()"></div>
-                <div class="ef-group"><label>h</label><input type="number" id="nf-h1" min="0" max="23" value="0" oninput="updateNewFlightResult()"></div>
-                <div class="ef-group"><label>min</label><input type="number" id="nf-m1" min="0" max="59" value="0" oninput="updateNewFlightResult()"></div>
+                <div class="ef-group"><label data-i18n="new_flight_day">Jour</label><input type="date" id="nf-date1" oninput="updateNewFlightResult()"></div>
+                <div class="ef-group"><label data-i18n="edit_h">h</label><input type="number" id="nf-h1" min="0" max="23" value="0" oninput="updateNewFlightResult()"></div>
+                <div class="ef-group"><label data-i18n="edit_min">min</label><input type="number" id="nf-m1" min="0" max="59" value="0" oninput="updateNewFlightResult()"></div>
               </div>
             </div>
             <div class="nf-group">
-              <label class="edit-block-label">Fin</label>
+              <label class="edit-block-label" data-i18n="new_flight_end">Fin</label>
               <div class="nf-datetime-row">
-                <div class="ef-group"><label>Jour</label><input type="date" id="nf-date2" oninput="updateNewFlightResult()"></div>
-                <div class="ef-group"><label>h</label><input type="number" id="nf-h2" min="0" max="23" value="0" oninput="updateNewFlightResult()"></div>
-                <div class="ef-group"><label>min</label><input type="number" id="nf-m2" min="0" max="59" value="0" oninput="updateNewFlightResult()"></div>
+                <div class="ef-group"><label data-i18n="new_flight_day">Jour</label><input type="date" id="nf-date2" oninput="updateNewFlightResult()"></div>
+                <div class="ef-group"><label data-i18n="edit_h">h</label><input type="number" id="nf-h2" min="0" max="23" value="0" oninput="updateNewFlightResult()"></div>
+                <div class="ef-group"><label data-i18n="edit_min">min</label><input type="number" id="nf-m2" min="0" max="59" value="0" oninput="updateNewFlightResult()"></div>
               </div>
             </div>
           </div>
-          <div class="nf-duration-row"><span class="res-label">Durée calculée</span><span class="res-dur" id="nf-duration">—</span></div>
+          <div class="nf-duration-row"><span class="res-label" data-i18n="new_flight_duration">Durée calculée</span><span class="res-dur" id="nf-duration">—</span></div>
           <div class="notes-group">
-            <label class="edit-block-label">Nom</label>
-            <input type="text" id="nf-name" class="debrief-input" style="width:100%" placeholder="Nom">
+            <label class="edit-block-label" data-i18n="new_flight_name">Nom</label>
+            <input type="text" id="nf-name" class="debrief-input" style="width:100%" data-i18n-ph="new_flight_name_ph" placeholder="Nom">
           </div>
           <div class="notes-group">
-            <label class="edit-block-label">Type(s) de mission</label>
+            <label class="edit-block-label" data-i18n="new_flight_missions">Type(s) de mission</label>
             <div class="mission-picker-wrap" id="nf-mission-picker-wrap"></div>
           </div>
           <div class="notes-group">
-            <label class="edit-block-label">Appareil(s) volé(s)</label>
+            <label class="edit-block-label" data-i18n="new_flight_aircraft">Appareil(s) volé(s)</label>
             <div id="nf-aircraft-picker" class="aircraft-picker-scroll"></div>
           </div>
           <div class="notes-group">
-            <label class="edit-block-label">Commentaire</label>
-            <textarea id="nf-notes" class="notes-textarea" placeholder="Commentaire..."></textarea>
+            <label class="edit-block-label" data-i18n="new_flight_comment">Commentaire</label>
+            <textarea id="nf-notes" class="notes-textarea" data-i18n-ph="new_flight_comment_ph" placeholder="Commentaire..."></textarea>
           </div>
           <div class="edit-actions">
-            <button class="btn-sm" onclick="saveNewFlight()">Ajouter</button>
-            <button class="btn-sm" onclick="showHistorique()">Annuler</button>
+            <button class="btn-sm" onclick="saveNewFlight()" data-i18n="new_flight_add">Ajouter</button>
+            <button class="btn-sm" onclick="showHistorique()" data-i18n="new_flight_cancel">Annuler</button>
           </div>
-          <div id="nf-save-msg">✓ Sauvegardé</div>
+          <div id="nf-save-msg" data-i18n="new_flight_saved">✓ Sauvegardé</div>
         </div>
       </div>
       <div id="profile-page" style="display:none">
         <div id="pf-header">
-          <div id="pf-title">Profil</div>
+          <div id="pf-title" data-i18n="profile_title">Profil</div>
         </div>
         <div id="pf-content"></div>
       </div>
       <div id="main">
         <div id="log-header">
-          <div id="log-title">Historique</div>
+          <div id="log-title" data-i18n="history_title">Historique</div>
           <div id="session-count"></div>
         </div>
         <div id="sessions-list">
           <div id="empty-msg">Aucune session enregistrée <span id="blink">_</span></div>
         </div>
         <div id="steam-note">
-          <span>■ Steam (importé) : <b id="steam-display">00h 00m</b></span>
-          <button class="btn-sm" onclick="toggleSteamEdit()">Modifier</button>
+          <span><span id="steam-label" data-i18n="steam_label">■ Steam (importé) :</span> <b id="steam-display">00h 00m</b></span>
+          <button class="btn-sm" onclick="toggleSteamEdit()" data-i18n="steam_edit">Modifier</button>
         </div>
         <div id="steam-input-row">
-          <label>h :</label><input type="number" id="steam-h-inp" min="0" value="0">
-          <label>min :</label><input type="number" id="steam-m-inp" min="0" max="59" value="0">
-          <button class="btn-sm" onclick="saveSteam()">Ok</button>
-          <button class="btn-sm"
-            onclick="document.getElementById('steam-input-row').style.display='none'">Annuler</button>
+          <label data-i18n="edit_h">h :</label><input type="number" id="steam-h-inp" min="0" value="0">
+          <label data-i18n="edit_min">min :</label><input type="number" id="steam-m-inp" min="0" max="59" value="0">
+          <button class="btn-sm" onclick="saveSteam()" data-i18n="steam_ok">Ok</button>
+          <button class="btn-sm" onclick="document.getElementById('steam-input-row').style.display='none'" data-i18n="steam_cancel">Annuler</button>
         </div>
       </div>
     </div>
@@ -176,9 +185,9 @@
     <div class="confirm-modal">
       <div class="confirm-msg" id="card-confirm-msg"></div>
       <div class="st-confirm-actions">
-        <button class="btn-sm" onclick="confirmCardLeave(true)">Sauvegarder</button>
-        <button class="btn-sm confirm-stay-btn" onclick="confirmCardLeave(null)">Modifier</button>
-        <button class="btn-sm" onclick="confirmCardLeave(false)">Ne pas sauvegarder</button>
+        <button class="btn-sm" onclick="confirmCardLeave(true)" data-i18n="confirm_save">Sauvegarder</button>
+        <button class="btn-sm confirm-stay-btn" onclick="confirmCardLeave(null)" data-i18n="confirm_edit">Modifier</button>
+        <button class="btn-sm" onclick="confirmCardLeave(false)" data-i18n="confirm_dont_save">Ne pas sauvegarder</button>
       </div>
     </div>
   </div>
@@ -186,9 +195,9 @@
     <div class="confirm-modal">
       <div class="confirm-msg" id="nf-confirm-msg"></div>
       <div class="st-confirm-actions">
-        <button class="btn-sm" onclick="confirmNewFlightLeave(true)">Sauvegarder</button>
-        <button class="btn-sm confirm-stay-btn" onclick="confirmNewFlightLeave(null)">Modifier</button>
-        <button class="btn-sm" onclick="confirmNewFlightLeave(false)">Ne pas sauvegarder</button>
+        <button class="btn-sm" onclick="confirmNewFlightLeave(true)" data-i18n="confirm_save">Sauvegarder</button>
+        <button class="btn-sm confirm-stay-btn" onclick="confirmNewFlightLeave(null)" data-i18n="confirm_edit">Modifier</button>
+        <button class="btn-sm" onclick="confirmNewFlightLeave(false)" data-i18n="confirm_dont_save">Ne pas sauvegarder</button>
       </div>
     </div>
   </div>
@@ -196,9 +205,9 @@
     <div class="confirm-modal">
       <div class="confirm-msg" id="pf-confirm-msg"></div>
       <div class="st-confirm-actions">
-        <button class="btn-sm" onclick="confirmProfileLeave(true)">Sauvegarder</button>
-        <button class="btn-sm confirm-stay-btn" onclick="confirmProfileLeave(null)">Modifier</button>
-        <button class="btn-sm" onclick="confirmProfileLeave(false)">Ne pas sauvegarder</button>
+        <button class="btn-sm" onclick="confirmProfileLeave(true)" data-i18n="confirm_save">Sauvegarder</button>
+        <button class="btn-sm confirm-stay-btn" onclick="confirmProfileLeave(null)" data-i18n="confirm_edit">Modifier</button>
+        <button class="btn-sm" onclick="confirmProfileLeave(false)" data-i18n="confirm_dont_save">Ne pas sauvegarder</button>
       </div>
     </div>
   </div>
@@ -206,9 +215,9 @@
     <div class="confirm-modal">
       <div class="confirm-msg" id="st-confirm-msg"></div>
       <div class="st-confirm-actions">
-        <button class="btn-sm" onclick="confirmSettingsLeave(true)">Sauvegarder</button>
-        <button class="btn-sm confirm-stay-btn" onclick="confirmSettingsLeave(null)">Modifier</button>
-        <button class="btn-sm" onclick="confirmSettingsLeave(false)">Ne pas sauvegarder</button>
+        <button class="btn-sm" onclick="confirmSettingsLeave(true)" data-i18n="confirm_save">Sauvegarder</button>
+        <button class="btn-sm confirm-stay-btn" onclick="confirmSettingsLeave(null)" data-i18n="confirm_edit">Modifier</button>
+        <button class="btn-sm" onclick="confirmSettingsLeave(false)" data-i18n="confirm_dont_save">Ne pas sauvegarder</button>
       </div>
     </div>
   </div>
@@ -220,25 +229,25 @@
       </div>
       <div class="debrief-times" id="debrief-times"></div>
       <div class="debrief-field">
-        <label class="debrief-label">Nom</label>
-        <input type="text" id="debrief-name" class="debrief-input" placeholder="Nom">
+        <label class="debrief-label" data-i18n="debrief_name">Nom</label>
+        <input type="text" id="debrief-name" class="debrief-input" data-i18n-ph="debrief_name_ph" placeholder="Nom">
       </div>
       <div class="debrief-field">
-        <label class="debrief-label">Appareil(s) volé(s)</label>
+        <label class="debrief-label" data-i18n="debrief_aircraft">Appareil(s) volé(s)</label>
         <div id="debrief-aircraft-picker" class="aircraft-picker-scroll"></div>
       </div>
       <div class="debrief-field">
-        <label class="debrief-label">Type(s) de mission</label>
+        <label class="debrief-label" data-i18n="debrief_missions">Type(s) de mission</label>
         <div class="mission-picker-wrap" id="debrief-mission-picker-wrap"></div>
       </div>
       <div class="debrief-field">
-        <label class="debrief-label">Commentaire</label>
-        <textarea id="debrief-notes" class="debrief-textarea" placeholder="Commentaire..."></textarea>
+        <label class="debrief-label" data-i18n="debrief_comment">Commentaire</label>
+        <textarea id="debrief-notes" class="debrief-textarea" data-i18n-ph="debrief_comment_ph" placeholder="Commentaire..."></textarea>
       </div>
       <div class="debrief-actions">
-        <button class="btn" onclick="confirmDebrief()">Confirmer</button>
-        <button class="btn" onclick="skipDebrief()">Passer</button>
-        <button class="btn-danger" onclick="deleteDebrief()">Supprimer</button>
+        <button class="btn" onclick="confirmDebrief()" data-i18n="debrief_confirm">Confirmer</button>
+        <button class="btn" onclick="skipDebrief()" data-i18n="debrief_skip">Passer</button>
+        <button class="btn-danger" onclick="deleteDebrief()" data-i18n="debrief_delete">Supprimer</button>
       </div>
     </div>
   </div>
