@@ -60,6 +60,7 @@
   "profile_image_hint": "512 × 512 px recommended (square)",
   "profile_delete_photo": "Delete photo",
   "profile_pilot_name": "Pilot name",
+  "profile_module_search": "Search a module...",
   "profile_modules": "DCS modules owned",
   "profile_modules_count": "DCS modules owned ({{count}})",
   "profile_no_modules": "No module selected",

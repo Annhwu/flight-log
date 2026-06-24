@@ -60,6 +60,7 @@
   "profile_image_hint": "512 × 512 px recommandé (carré)",
   "profile_delete_photo": "Supprimer la photo",
   "profile_pilot_name": "Nom du pilote",
+  "profile_module_search": "Rechercher un module...",
   "profile_modules": "Modules DCS possédés",
   "profile_modules_count": "Modules DCS possédés ({{count}})",
   "profile_no_modules": "Aucun module sélectionné",

@@ -60,6 +60,7 @@
   "profile_image_hint": "512 × 512 пкс (квадрат)",
   "profile_delete_photo": "Удалить фото",
   "profile_pilot_name": "Имя пилота",
+  "profile_module_search": "Поиск модуля...",
   "profile_modules": "Модули DCS",
   "profile_modules_count": "Модули DCS ({{count}})",
   "profile_no_modules": "Нет выбранных модулей",
