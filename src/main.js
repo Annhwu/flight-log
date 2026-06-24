@@ -1,4 +1,5 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { initI18n, t, setLang, getLocale, applyStaticTranslations } from './i18n';
 const MISSION_TYPES = ['Training', 'CAP', 'CAS', 'SEAD', 'Strike', 'Intercept', 'Recon', 'Anti-Ship'];
 async function invoke(cmd, args) {
@@ -67,6 +68,7 @@ let elapsedInterval = null;
 let pendingSession = null;
 let profile = { name: '', modules: [] };
 let settingsDirty = false;
+let pendingNewFlightNav = null;
 let profileEditing = false;
 let pendingAvatarChange = undefined;
 let editingCardId = null;
@@ -142,12 +144,76 @@ async function loadFromFile() {
         // Pas de fichier existant, on démarre vide
     }
 }
-document.addEventListener('contextmenu', (e) => {
-    const target = e.target;
-    const isText = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
-    if (!isText)
+// ─── Context menu ──────────────────────────────────────────────────────────
+(function initContextMenu() {
+    const menu = document.createElement('div');
+    menu.id = 'ctx-menu';
+    document.body.appendChild(menu);
+    function renderMenu() {
+        const cutBtn = document.createElement('button');
+        cutBtn.id = 'ctx-cut';
+        const copyBtn = document.createElement('button');
+        copyBtn.id = 'ctx-copy';
+        const pasteBtn = document.createElement('button');
+        pasteBtn.id = 'ctx-paste';
+        cutBtn.textContent = t('ctx_cut');
+        copyBtn.textContent = t('ctx_copy');
+        pasteBtn.textContent = t('ctx_paste');
+        menu.innerHTML = '';
+        menu.append(cutBtn, copyBtn, pasteBtn);
+        if (import.meta.env?.DEV) {
+            const sep = document.createElement('hr');
+            sep.style.cssText = 'border:none;border-top:1px solid var(--border);margin:4px 0;';
+            const inspectBtn = document.createElement('button');
+            inspectBtn.textContent = 'Inspecter';
+            inspectBtn.addEventListener('click', async () => {
+                hide();
+                try {
+                    await invoke('plugin:webview|internal_toggle_devtools', { label: getCurrentWebviewWindow().label });
+                }
+                catch (e) {
+                    console.error('[devtools]', e);
+                }
+            });
+            menu.append(sep, inspectBtn);
+        }
+        return { cutBtn, copyBtn, pasteBtn };
+    }
+    function hide() { menu.style.display = 'none'; }
+    document.addEventListener('contextmenu', (e) => {
         e.preventDefault();
-});
+        const { cutBtn, copyBtn, pasteBtn } = renderMenu();
+        const sel = window.getSelection()?.toString() ?? '';
+        const active = document.activeElement;
+        const isEditable = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable);
+        cutBtn.disabled = !(isEditable && sel.length > 0);
+        copyBtn.disabled = sel.length === 0;
+        cutBtn.addEventListener('click', () => { document.execCommand('cut'); hide(); });
+        copyBtn.addEventListener('click', () => { document.execCommand('copy'); hide(); });
+        pasteBtn.addEventListener('click', async () => {
+            hide();
+            try {
+                const text = await navigator.clipboard.readText();
+                if (isEditable && active) {
+                    const s = active.selectionStart ?? active.value.length;
+                    const end = active.selectionEnd ?? active.value.length;
+                    active.value = active.value.slice(0, s) + text + active.value.slice(end);
+                    active.selectionStart = active.selectionEnd = s + text.length;
+                    active.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            }
+            catch { /* clipboard access denied */ }
+        });
+        const x = Math.min(e.clientX, window.innerWidth - 145);
+        const y = Math.min(e.clientY, window.innerHeight - 110);
+        menu.style.left = x + 'px';
+        menu.style.top = y + 'px';
+        menu.style.display = 'block';
+    });
+    document.addEventListener('click', hide);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape')
+        hide(); });
+})();
 let _lastBtnRect = null;
 document.addEventListener('click', (e) => {
     const btn = e.target.closest('button, label[class*="btn"]');
@@ -400,7 +466,9 @@ function renderSessions() {
             const q = query.replace(/^#/, '');
             return String(num).includes(q)
                 || (s.name?.toLowerCase().includes(query) ?? false)
-                || (s.notes?.toLowerCase().includes(query) ?? false);
+                || (s.notes?.toLowerCase().includes(query) ?? false)
+                || (s.aircraft?.some(a => a.toLowerCase().includes(query)) ?? false)
+                || (s.missionTypes?.some(mt => mt.toLowerCase().includes(query)) ?? false);
         })
         : numbered;
     sc.textContent = t('history_count', { count: sessions.length, duration: minsToHM(totalSAMin()) });
@@ -627,11 +695,11 @@ function updateProfileBtn() {
     btn.innerHTML = `<img src="${src}" alt="profil" style="width:100%;height:100%;border-radius:50%;object-fit:cover;display:block;">`;
 }
 function hidAllPages() {
-    document.getElementById('main').style.display = 'none';
+    document.getElementById('log-page').style.display = 'none';
     document.getElementById('profile-page').style.display = 'none';
     document.getElementById('new-flight-page').style.display = 'none';
     document.getElementById('settings-page').style.display = 'none';
-    ['nav-historique', 'nav-new-flight', 'nav-settings'].forEach(id => document.getElementById(id)?.classList.remove('active'));
+    ['nav-historique', 'nav-new-flight', 'nav-settings', 'burger-historique', 'burger-new-flight', 'burger-settings'].forEach(id => document.getElementById(id)?.classList.remove('active'));
     document.getElementById('profile-btn')?.classList.remove('active');
 }
 function showProfile() {
@@ -657,7 +725,7 @@ function showHistorique() {
     if (checkSettingsDirty(() => showHistorique()))
         return;
     hidAllPages();
-    document.getElementById('main').style.display = '';
+    document.getElementById('log-page').style.display = '';
     document.getElementById('nav-historique')?.classList.add('active');
     document.getElementById('burger-historique')?.classList.add('active');
     closeBurger();
@@ -674,6 +742,7 @@ function showSettings() {
     hidAllPages();
     document.getElementById('settings-page').style.display = 'flex';
     document.getElementById('nav-settings')?.classList.add('active');
+    document.getElementById('burger-settings')?.classList.add('active');
     const expCb = document.getElementById('st-export-profile');
     const impCb = document.getElementById('st-import-profile');
     if (expCb)
@@ -684,17 +753,20 @@ function showSettings() {
 }
 function onSettingChange() {
     settingsDirty = true;
+    document.getElementById('st-action-btns').style.display = '';
 }
 function saveSettings() {
     profile.exportProfile = document.getElementById('st-export-profile').checked;
     profile.importProfile = document.getElementById('st-import-profile').checked;
     settingsDirty = false;
+    document.getElementById('st-action-btns').style.display = 'none';
     saveToFile();
 }
 function cancelSettings() {
     document.getElementById('st-export-profile').checked = !!profile.exportProfile;
     document.getElementById('st-import-profile').checked = !!profile.importProfile;
     settingsDirty = false;
+    document.getElementById('st-action-btns').style.display = 'none';
 }
 function getSettingsChanges() {
     const changes = [];
@@ -766,12 +838,13 @@ function getNewFlightChanges() {
         changes.push(t('change_comment_filled'));
     return changes;
 }
-function checkNewFlight(_nav) {
+function checkNewFlight(nav) {
     const page = document.getElementById('new-flight-page');
     if (!page || page.style.display === 'none')
         return false;
     if (!isNewFlightDirty())
         return false;
+    pendingNewFlightNav = nav;
     const changes = getNewFlightChanges();
     const msg = document.getElementById('nf-confirm-msg');
     msg.innerHTML = changes.length
@@ -782,10 +855,20 @@ function checkNewFlight(_nav) {
 }
 function confirmNewFlightLeave(save) {
     document.getElementById('nf-confirm-overlay').style.display = 'none';
-    if (save === null)
+    if (save === null) {
+        pendingNewFlightNav = null;
         return;
-    if (save)
+    }
+    if (save) {
         saveNewFlight();
+        pendingNewFlightNav = null;
+        return;
+    }
+    const nav = pendingNewFlightNav;
+    pendingNewFlightNav = null;
+    showNewFlight();
+    if (nav)
+        nav();
 }
 function checkSettingsDirty(_nav) {
     if (!settingsDirty || document.getElementById('settings-page').style.display === 'none')
@@ -820,6 +903,7 @@ function showNewFlight() {
     hidAllPages();
     document.getElementById('new-flight-page').style.display = 'flex';
     document.getElementById('nav-new-flight')?.classList.add('active');
+    document.getElementById('burger-new-flight')?.classList.add('active');
     const today = fmtDateInput(new Date());
     document.getElementById('nf-date1').value = today;
     document.getElementById('nf-date2').value = today;
@@ -1121,6 +1205,9 @@ function uploadAvatar(event) {
 function removeAvatar() {
     const nameVal = document.getElementById('pf-name-input')?.value || profile.name;
     pendingAvatarChange = null;
+    profile = { ...profile, avatar: undefined };
+    saveToFile();
+    updateProfileBtn();
     const preview = document.getElementById('pf-avatar-preview');
     if (preview)
         preview.innerHTML = avatarHtml(nameVal, undefined, 72);
@@ -1196,7 +1283,7 @@ window.confirmDebrief = confirmDebrief;
 window.skipDebrief = skipDebrief;
 window.deleteDebrief = deleteDebrief;
 function handleSearchInput() {
-    const mainEl = document.getElementById('main');
+    const mainEl = document.getElementById('log-page');
     if (mainEl.style.display === 'none') {
         hidAllPages();
         mainEl.style.display = '';
@@ -1236,6 +1323,22 @@ window.filterModules = filterModules;
 window.uploadAvatar = uploadAvatar;
 window.removeAvatar = removeAvatar;
 window.setLanguage = setLanguage;
+function setTheme(theme) {
+    const root = document.getElementById('dcs-root');
+    if (theme === 'parchment') {
+        root.removeAttribute('data-theme');
+        document.body.removeAttribute('data-theme');
+    }
+    else {
+        root.setAttribute('data-theme', theme);
+        document.body.setAttribute('data-theme', theme);
+    }
+    localStorage.setItem('theme', theme);
+    document.querySelectorAll('.theme-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.theme === theme);
+    });
+}
+window.setTheme = setTheme;
 window.tbMinimize = () => getCurrentWindow().minimize();
 window.tbMaximize = () => getCurrentWindow().toggleMaximize();
 window.tbClose = () => getCurrentWindow().close();
@@ -1244,6 +1347,8 @@ window.addEventListener('DOMContentLoaded', async () => {
     await initI18n();
     await loadFromFile();
     applyStaticTranslations();
+    const savedTheme = localStorage.getItem('theme') || 'parchment';
+    setTheme(savedTheme);
     // Set dynamic initial state labels
     const siLabel = document.getElementById('si-label');
     if (siLabel)
@@ -1258,4 +1363,9 @@ window.addEventListener('DOMContentLoaded', async () => {
     updateSteamDisplay();
     updateTotal();
     renderSessions();
+    const searchBar = document.getElementById('search-bar');
+    if (searchBar) {
+        searchBar.addEventListener('mouseenter', () => searchBar.classList.add('hovered'));
+        searchBar.addEventListener('mouseleave', () => searchBar.classList.remove('hovered'));
+    }
 });
