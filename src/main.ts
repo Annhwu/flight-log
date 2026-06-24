@@ -536,7 +536,9 @@ function updateProfileBtn(): void {
 function showProfile(): void {
   (document.getElementById('main')  as HTMLElement).style.display = 'none';
   (document.getElementById('profile-page') as HTMLElement).style.display = 'flex';
+  (document.getElementById('new-flight-page') as HTMLElement).style.display = 'none';
   document.getElementById('nav-historique')?.classList.remove('active');
+  document.getElementById('nav-new-flight')?.classList.remove('active');
   document.getElementById('profile-btn')?.classList.add('active');
   renderProfileView();
 }
@@ -551,10 +553,84 @@ function hideProfile(): void {
 function showHistorique(): void {
   (document.getElementById('main')  as HTMLElement).style.display = '';
   (document.getElementById('profile-page') as HTMLElement).style.display = 'none';
+  (document.getElementById('new-flight-page') as HTMLElement).style.display = 'none';
   document.getElementById('nav-historique')?.classList.add('active');
+  document.getElementById('nav-new-flight')?.classList.remove('active');
   document.getElementById('burger-historique')?.classList.add('active');
   document.getElementById('profile-btn')?.classList.remove('active');
   closeBurger();
+}
+
+function showNewFlight(): void {
+  (document.getElementById('main')  as HTMLElement).style.display = 'none';
+  (document.getElementById('profile-page') as HTMLElement).style.display = 'none';
+  (document.getElementById('new-flight-page') as HTMLElement).style.display = 'flex';
+  document.getElementById('nav-historique')?.classList.remove('active');
+  document.getElementById('nav-new-flight')?.classList.add('active');
+  document.getElementById('profile-btn')?.classList.remove('active');
+  const today = fmtDateInput(new Date());
+  (document.getElementById('nf-date1') as HTMLInputElement).value = today;
+  (document.getElementById('nf-date2') as HTMLInputElement).value = today;
+  (document.getElementById('nf-h1') as HTMLInputElement).value = '0';
+  (document.getElementById('nf-m1') as HTMLInputElement).value = '0';
+  (document.getElementById('nf-h2') as HTMLInputElement).value = '0';
+  (document.getElementById('nf-m2') as HTMLInputElement).value = '0';
+  (document.getElementById('nf-name') as HTMLInputElement).value = '';
+  (document.getElementById('nf-notes') as HTMLTextAreaElement).value = '';
+  const mwrap = document.getElementById('nf-mission-picker-wrap');
+  if (mwrap) mwrap.innerHTML = renderMissionPickerHtml(-1, []);
+  const apicker = document.getElementById('nf-aircraft-picker');
+  if (apicker) apicker.innerHTML = renderAircraftPickerHtml([]);
+  updateNewFlightResult();
+}
+
+function updateNewFlightResult(): void {
+  const d1 = (document.getElementById('nf-date1') as HTMLInputElement).value;
+  const d2 = (document.getElementById('nf-date2') as HTMLInputElement).value;
+  const h1 = parseInt((document.getElementById('nf-h1') as HTMLInputElement).value) || 0;
+  const m1 = parseInt((document.getElementById('nf-m1') as HTMLInputElement).value) || 0;
+  const h2 = parseInt((document.getElementById('nf-h2') as HTMLInputElement).value) || 0;
+  const m2 = parseInt((document.getElementById('nf-m2') as HTMLInputElement).value) || 0;
+  const el = document.getElementById('nf-duration');
+  if (!el) return;
+  if (!d1 || !d2) { el.textContent = '—'; return; }
+  const start = new Date(`${d1}T${pad(h1)}:${pad(m1)}:00`);
+  const end   = new Date(`${d2}T${pad(h2)}:${pad(m2)}:00`);
+  const dur   = Math.round((end.getTime() - start.getTime()) / 60000);
+  el.textContent = dur > 0 ? durLabel(dur) : '—';
+}
+
+async function saveNewFlight(): Promise<void> {
+  const d1 = (document.getElementById('nf-date1') as HTMLInputElement).value;
+  const d2 = (document.getElementById('nf-date2') as HTMLInputElement).value;
+  if (!d1 || !d2) return;
+  const h1 = parseInt((document.getElementById('nf-h1') as HTMLInputElement).value) || 0;
+  const m1 = parseInt((document.getElementById('nf-m1') as HTMLInputElement).value) || 0;
+  const h2 = parseInt((document.getElementById('nf-h2') as HTMLInputElement).value) || 0;
+  const m2 = parseInt((document.getElementById('nf-m2') as HTMLInputElement).value) || 0;
+  const start = new Date(`${d1}T${pad(h1)}:${pad(m1)}:00`);
+  const end   = new Date(`${d2}T${pad(h2)}:${pad(m2)}:00`);
+  const dur   = Math.round((end.getTime() - start.getTime()) / 60000);
+  if (dur <= 0) return;
+  const name  = (document.getElementById('nf-name') as HTMLInputElement).value.trim() || undefined;
+  const notes = (document.getElementById('nf-notes') as HTMLTextAreaElement).value.trim() || undefined;
+  const ac = Array.from(document.querySelectorAll<HTMLElement>('#nf-aircraft-picker .aircraft-toggle.selected')).map(el => el.dataset.aircraft!).filter(Boolean);
+  const mt = Array.from(document.querySelectorAll<HTMLElement>('#emission-tags--1 [data-mission]')).map(el => el.dataset.mission!).filter(Boolean);
+  const s: Session = {
+    id: Date.now(),
+    startTs: start.getTime(),
+    endTs: end.getTime(),
+    durationMin: dur,
+    name,
+    notes,
+    aircraft: ac.length ? ac : undefined,
+    missionTypes: mt.length ? mt : undefined,
+  };
+  sessions.unshift(s);
+  renderSessions(); updateTotal(); await saveToFile();
+  showNewFlight();
+  const msg = document.getElementById('nf-save-msg');
+  if (msg) { msg.style.opacity = '1'; setTimeout(() => msg.style.opacity = '0', 1500); }
 }
 
 function toggleBurger(): void {
@@ -729,6 +805,9 @@ window.skipDebrief = skipDebrief;
 window.filterSessions = renderSessions;
 window.showProfile = showProfile;
 (window as any).showHistorique = showHistorique;
+(window as any).showNewFlight = showNewFlight;
+(window as any).updateNewFlightResult = updateNewFlightResult;
+(window as any).saveNewFlight = saveNewFlight;
 (window as any).toggleBurger = toggleBurger;
 (window as any).toggleMissionPanel = toggleMissionPanel;
 (window as any).toggleMissionType = toggleMissionType;

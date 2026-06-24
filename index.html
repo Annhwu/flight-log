@@ -34,6 +34,7 @@
         <div id="navbar-row2">
           <div id="navbar-left">
             <button class="nav-tab active" id="nav-historique" onclick="showHistorique()">Historique</button>
+            <button class="nav-tab" id="nav-new-flight" onclick="showNewFlight()">Nouveau vol</button>
           </div>
           <div id="navbar-right">
             <div id="session-zone">
@@ -53,6 +54,7 @@
         </div>
         <div id="burger-menu">
           <button class="nav-tab" id="burger-historique" onclick="showHistorique();closeBurger()">Historique</button>
+          <button class="nav-tab" onclick="showNewFlight();closeBurger()">+ Nouveau vol</button>
           <hr class="burger-sep">
           <div id="burger-session-zone">
             <div id="burger-si-label">En attente</div>
@@ -62,6 +64,53 @@
           </div>
           <hr class="burger-sep">
           <input type="text" id="burger-search" class="burger-search-input" placeholder="Rechercher…" oninput="syncBurgerSearch()">
+        </div>
+      </div>
+      <div id="new-flight-page" style="display:none">
+        <div id="nf-header">
+          <div id="nf-title">Nouveau vol</div>
+        </div>
+        <div id="nf-form">
+          <div class="nf-times-col">
+            <div class="nf-group">
+              <label class="edit-block-label">Début</label>
+              <div class="nf-datetime-row">
+                <div class="ef-group"><label>Jour</label><input type="date" id="nf-date1" oninput="updateNewFlightResult()"></div>
+                <div class="ef-group"><label>h</label><input type="number" id="nf-h1" min="0" max="23" value="0" oninput="updateNewFlightResult()"></div>
+                <div class="ef-group"><label>min</label><input type="number" id="nf-m1" min="0" max="59" value="0" oninput="updateNewFlightResult()"></div>
+              </div>
+            </div>
+            <div class="nf-group">
+              <label class="edit-block-label">Fin</label>
+              <div class="nf-datetime-row">
+                <div class="ef-group"><label>Jour</label><input type="date" id="nf-date2" oninput="updateNewFlightResult()"></div>
+                <div class="ef-group"><label>h</label><input type="number" id="nf-h2" min="0" max="23" value="0" oninput="updateNewFlightResult()"></div>
+                <div class="ef-group"><label>min</label><input type="number" id="nf-m2" min="0" max="59" value="0" oninput="updateNewFlightResult()"></div>
+              </div>
+            </div>
+          </div>
+          <div class="nf-duration-row"><span class="res-label">Durée calculée</span><span class="res-dur" id="nf-duration">—</span></div>
+          <div class="notes-group">
+            <label class="edit-block-label">Nom du vol</label>
+            <input type="text" id="nf-name" class="debrief-input" style="width:100%" placeholder="ex : Patrouille sur le Caucase">
+          </div>
+          <div class="notes-group">
+            <label class="edit-block-label">Type(s) de mission</label>
+            <div class="mission-picker-wrap" id="nf-mission-picker-wrap"></div>
+          </div>
+          <div class="notes-group">
+            <label class="edit-block-label">Appareil(s) volé(s)</label>
+            <div id="nf-aircraft-picker" class="aircraft-picker-scroll"></div>
+          </div>
+          <div class="notes-group">
+            <label class="edit-block-label">Commentaire</label>
+            <textarea id="nf-notes" class="notes-textarea" placeholder="Comment s'est passé le vol ?"></textarea>
+          </div>
+          <div class="edit-actions">
+            <button class="btn-sm" onclick="saveNewFlight()">Ajouter</button>
+            <button class="btn-sm" onclick="showHistorique()">Annuler</button>
+          </div>
+          <div id="nf-save-msg">✓ Sauvegardé</div>
         </div>
       </div>
       <div id="profile-page" style="display:none">
