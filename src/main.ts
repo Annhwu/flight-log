@@ -309,6 +309,8 @@ function openDebrief(): void {
   (document.getElementById('debrief-notes') as HTMLTextAreaElement).value = '';
   const picker = document.getElementById('debrief-aircraft-picker');
   if (picker) picker.innerHTML = renderAircraftPickerHtml([]);
+  const mwrap = document.getElementById('debrief-mission-picker-wrap');
+  if (mwrap) mwrap.innerHTML = renderMissionPickerHtml(0, []);
   document.getElementById('debrief-overlay')!.classList.add('open');
   setTimeout(() => (document.getElementById('debrief-name') as HTMLInputElement).focus(), 50);
 }
@@ -319,6 +321,8 @@ async function confirmDebrief(): Promise<void> {
   pendingSession.notes = (document.getElementById('debrief-notes') as HTMLTextAreaElement).value.trim() || undefined;
   pendingSession.aircraft = Array.from(document.querySelectorAll<HTMLElement>('#debrief-aircraft-picker .aircraft-toggle.selected')).map(el => el.dataset.aircraft!).filter(Boolean);
   if (!pendingSession.aircraft.length) pendingSession.aircraft = undefined;
+  const mt = Array.from(document.querySelectorAll<HTMLElement>('#emission-tags-0 [data-mission]')).map(el => el.dataset.mission!).filter(Boolean);
+  pendingSession.missionTypes = mt.length ? mt : undefined;
   sessions.unshift(pendingSession);
   pendingSession = null;
   document.getElementById('debrief-overlay')!.classList.remove('open');
