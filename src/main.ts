@@ -1219,7 +1219,17 @@ window.toggleCard  = toggleCard;
 window.confirmDebrief = confirmDebrief;
 window.skipDebrief = skipDebrief;
 (window as any).deleteDebrief = deleteDebrief;
-window.filterSessions = renderSessions;
+function handleSearchInput(): void {
+  const mainEl = document.getElementById('main') as HTMLElement;
+  if (mainEl.style.display === 'none') {
+    hidAllPages();
+    mainEl.style.display = '';
+    document.getElementById('nav-historique')?.classList.add('active');
+    document.getElementById('burger-historique')?.classList.add('active');
+  }
+  renderSessions();
+}
+window.filterSessions = handleSearchInput;
 window.showProfile = showProfile;
 (window as any).showHistorique = showHistorique;
 (window as any).showNewFlight = showNewFlight;
