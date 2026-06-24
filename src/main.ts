@@ -2,6 +2,7 @@
 export { };
 
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { initI18n, t, setLang, getLocale, applyStaticTranslations } from './i18n';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -160,7 +161,7 @@ let editingCardId: number | null = null;
 function pad(n: number): string { return String(n).padStart(2, '0'); }
 function escapeHtml(s: string): string { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function fmtTime(d: Date): string { return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); }
-function fmtDate(d: Date): string { return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
+function fmtDate(d: Date): string { return d.toLocaleDateString(getLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' }); }
 function fmtDateInput(d: Date): string { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
 function minsToHM(m: number): string { const h = Math.floor(m / 60), mm = Math.round(m % 60); return pad(h) + 'h ' + pad(mm) + 'm'; }
 function secsToHMS(s: number): string { const h = Math.floor(s / 3600), mm = Math.floor((s % 3600) / 60), ss = Math.round(s % 60); return pad(h) + 'h ' + pad(mm) + 'm ' + pad(ss) + 's'; }
@@ -286,7 +287,7 @@ function loadFile(event: Event): void {
       updateTotal();
       renderSessions();
     } catch {
-      alert('Fichier JSON invalide.');
+      alert(t('error_invalid_json'));
     }
   };
   reader.readAsText(file);
@@ -331,11 +332,11 @@ function toggleSession(): void {
   const btn = document.getElementById('btn-toggle') as HTMLButtonElement;
   if (!activeStart) {
     activeStart = new Date();
-    btn.textContent = '■ OFF';
+    btn.textContent = t('session_stop');
     btn.classList.add('active');
     const siLabel = document.getElementById('si-label');
     const siTime = document.getElementById('si-time');
-    if (siLabel) siLabel.textContent = 'Session en cours';
+    if (siLabel) siLabel.textContent = t('session_active');
     if (siTime) siTime.textContent = fmtDate(activeStart) + ' — ' + fmtTime(activeStart);
     elapsedInterval = window.setInterval(updateElapsed, 1000);
     updateElapsed();
@@ -349,12 +350,12 @@ function toggleSession(): void {
       durationMin: (end.getTime() - activeStart.getTime()) / 60000,
     };
     activeStart = null;
-    btn.textContent = '▶ ON';
+    btn.textContent = t('session_start');
     btn.classList.remove('active');
     const siLabel = document.getElementById('si-label');
     const siTime = document.getElementById('si-time');
     const siElapsed = document.getElementById('si-elapsed');
-    if (siLabel) siLabel.textContent = 'En attente';
+    if (siLabel) siLabel.textContent = t('session_waiting');
     if (siTime) siTime.textContent = '--:--:--';
     if (siElapsed) siElapsed.textContent = '';
     openDebrief();
@@ -364,7 +365,7 @@ function toggleSession(): void {
 function openDebrief(): void {
   if (!pendingSession) return;
   const num = sessions.length + 1;
-  (document.getElementById('debrief-num') as HTMLElement).textContent = 'Vol #' + pad(num);
+  (document.getElementById('debrief-num') as HTMLElement).textContent = t('debrief_flight_num', { num: pad(num) });
   (document.getElementById('debrief-dur') as HTMLElement).textContent = durLabel(pendingSession.durationMin);
   const tStart = new Date(pendingSession.startTs);
   const tEnd   = new Date(pendingSession.endTs);
@@ -445,7 +446,7 @@ function renderSessions(): void {
   const query = ((document.getElementById('search-input') as HTMLInputElement)?.value ?? '').trim().toLowerCase();
 
   if (!sessions.length) {
-    list.innerHTML = '<div id="empty-msg">Aucune session enregistrée <span id="blink">_</span></div>';
+    list.innerHTML = `<div id="empty-msg">${t('history_empty')} <span id="blink">_</span></div>`;
     sc.textContent = '';
     return;
   }
@@ -460,10 +461,10 @@ function renderSessions(): void {
       })
     : numbered;
 
-  sc.textContent = sessions.length + ' session(s) · ' + minsToHM(totalSAMin());
+  sc.textContent = t('history_count', { count: sessions.length, duration: minsToHM(totalSAMin()) });
 
   if (!filtered.length) {
-    list.innerHTML = '<div id="empty-msg">Aucun vol ne correspond à la recherche.</div>';
+    list.innerHTML = `<div id="empty-msg">${t('history_no_results')}</div>`;
     return;
   }
 
@@ -471,69 +472,69 @@ function renderSessions(): void {
     const start = new Date(s.startTs);
     const end   = new Date(s.endTs);
     const nameLine     = s.name  ? `<div class="s-name">${escapeHtml(s.name)}</div>` : '';
-    const notesBadge   = s.notes ? `<div class="row s-note-badge">Détail supplémentaire</div>` : '';
+    const notesBadge   = s.notes ? `<div class="row s-note-badge">${t('card_notes_badge')}</div>` : '';
     const aircraftRow  = s.aircraft?.length ? `<div class="s-aircraft-row">${s.aircraft.map(a => `<span class="s-aircraft-tag">${escapeHtml(a)}</span>`).join('')}</div>` : '';
-    const missionRow   = s.missionTypes?.length ? `<div class="s-aircraft-row">${s.missionTypes.map(t => `<span class="s-mission-tag" data-mission="${escapeHtml(t)}">${escapeHtml(t)}</span>`).join('')}</div>` : '';
+    const missionRow   = s.missionTypes?.length ? `<div class="s-aircraft-row">${s.missionTypes.map(mt => `<span class="s-mission-tag" data-mission="${escapeHtml(mt)}">${escapeHtml(mt)}</span>`).join('')}</div>` : '';
     const notesFull    = s.notes
       ? `<div class="s-notes-full">${escapeHtml(s.notes).replace(/\n/g, '<br>')}</div>`
-      : `<div class="s-notes-empty">Aucune note pour ce vol.</div>`;
+      : `<div class="s-notes-empty">${t('card_no_notes')}</div>`;
     return `<div class="session-card" id="sc-${s.id}">
       <div class="card-header" onclick="toggleCard(${s.id})">
         <div class="s-num">#${pad(num)}</div>
         <div class="s-times">
           ${nameLine}
-          <div class="row">Déb&nbsp;<span>${fmtDate(start)} ${pad(start.getHours())}:${pad(start.getMinutes())}</span></div>
-          <div class="row">Fin&nbsp;<span>${fmtDate(end)} ${pad(end.getHours())}:${pad(end.getMinutes())}</span></div>
+          <div class="row">${t('card_start')}&nbsp;<span>${fmtDate(start)} ${pad(start.getHours())}:${pad(start.getMinutes())}</span></div>
+          <div class="row">${t('card_end')}&nbsp;<span>${fmtDate(end)} ${pad(end.getHours())}:${pad(end.getMinutes())}</span></div>
           ${notesBadge}
           ${missionRow}
           ${aircraftRow}
         </div>
         <div class="s-dur">${durLabel(s.durationMin)}</div>
-        <button class="btn-icon" onclick="event.stopPropagation();toggleEdit(${s.id})" title="Éditer"><img src="./icons/pencil.png" width="16" height="16"></button>
-        <button class="btn-icon btn-icon-danger" onclick="event.stopPropagation();deleteSession(${s.id})" title="Supprimer"><img src="./icons/trash.png" width="16" height="16"></button>
+        <button class="btn-icon" onclick="event.stopPropagation();toggleEdit(${s.id})" title="${t('card_edit_tooltip')}"><img src="./icons/pencil.png" width="16" height="16"></button>
+        <button class="btn-icon btn-icon-danger" onclick="event.stopPropagation();deleteSession(${s.id})" title="${t('card_delete_tooltip')}"><img src="./icons/trash.png" width="16" height="16"></button>
       </div>
       <div class="s-details" id="details-${s.id}">
         ${notesFull}
       </div>
       <div class="edit-row" id="edit-${s.id}" onclick="event.stopPropagation()">
         <div class="edit-block">
-          <div class="edit-block-label">Début</div>
+          <div class="edit-block-label">${t('edit_start')}</div>
           <div class="edit-fields-row">
-            <div class="ef-group"><label>Jour</label><input type="date" id="edate1-${s.id}" value="${fmtDateInput(start)}" oninput="updateEditResult(${s.id})"></div>
+            <div class="ef-group"><label>${t('edit_day')}</label><input type="date" id="edate1-${s.id}" value="${fmtDateInput(start)}" oninput="updateEditResult(${s.id})"></div>
             <div class="ef-sep">—</div>
-            <div class="ef-group"><label>h</label><input type="number" id="eh1-${s.id}" min="0" max="23" value="${start.getHours()}" oninput="updateEditResult(${s.id})"></div>
-            <div class="ef-group"><label>min</label><input type="number" id="em1-${s.id}" min="0" max="59" value="${start.getMinutes()}" oninput="updateEditResult(${s.id})"></div>
+            <div class="ef-group"><label>${t('edit_h')}</label><input type="number" id="eh1-${s.id}" min="0" max="23" value="${start.getHours()}" oninput="updateEditResult(${s.id})"></div>
+            <div class="ef-group"><label>${t('edit_min')}</label><input type="number" id="em1-${s.id}" min="0" max="59" value="${start.getMinutes()}" oninput="updateEditResult(${s.id})"></div>
           </div>
         </div>
         <div class="edit-block">
-          <div class="edit-block-label">Fin</div>
+          <div class="edit-block-label">${t('edit_end')}</div>
           <div class="edit-fields-row">
-            <div class="ef-group"><label>Jour</label><input type="date" id="edate2-${s.id}" value="${fmtDateInput(end)}" oninput="updateEditResult(${s.id})"></div>
+            <div class="ef-group"><label>${t('edit_day')}</label><input type="date" id="edate2-${s.id}" value="${fmtDateInput(end)}" oninput="updateEditResult(${s.id})"></div>
             <div class="ef-sep">—</div>
-            <div class="ef-group"><label>h</label><input type="number" id="eh2-${s.id}" min="0" max="23" value="${end.getHours()}" oninput="updateEditResult(${s.id})"></div>
-            <div class="ef-group"><label>min</label><input type="number" id="em2-${s.id}" min="0" max="59" value="${end.getMinutes()}" oninput="updateEditResult(${s.id})"></div>
+            <div class="ef-group"><label>${t('edit_h')}</label><input type="number" id="eh2-${s.id}" min="0" max="23" value="${end.getHours()}" oninput="updateEditResult(${s.id})"></div>
+            <div class="ef-group"><label>${t('edit_min')}</label><input type="number" id="em2-${s.id}" min="0" max="59" value="${end.getMinutes()}" oninput="updateEditResult(${s.id})"></div>
           </div>
         </div>
         <div class="notes-group">
-          <label class="edit-block-label">Nom</label>
-          <input type="text" id="ename-${s.id}" class="debrief-input" style="width:100%" placeholder="Nom" value="${escapeHtml(s.name || '')}">
+          <label class="edit-block-label">${t('edit_name')}</label>
+          <input type="text" id="ename-${s.id}" class="debrief-input" style="width:100%" placeholder="${t('edit_name_placeholder')}" value="${escapeHtml(s.name || '')}">
         </div>
         <div class="notes-group">
-          <label class="edit-block-label">Type(s) de mission</label>
+          <label class="edit-block-label">${t('edit_mission_types')}</label>
           <div class="mission-picker-wrap">${renderMissionPickerHtml(s.id, s.missionTypes ?? [])}</div>
         </div>
         <div class="notes-group">
-          <label class="edit-block-label">Appareil(s) volé(s)</label>
+          <label class="edit-block-label">${t('edit_aircraft')}</label>
           <div id="eaircraft-${s.id}" class="aircraft-picker-scroll">${renderAircraftPickerHtml(s.aircraft ?? [])}</div>
         </div>
         <div class="notes-group">
-          <label class="edit-block-label">Détail du vol</label>
-          <textarea id="enotes-${s.id}" class="notes-textarea" placeholder="Commentaire.." oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'">${escapeHtml(s.notes || '')}</textarea>
+          <label class="edit-block-label">${t('edit_notes')}</label>
+          <textarea id="enotes-${s.id}" class="notes-textarea" placeholder="${t('edit_notes_placeholder')}" oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'">${escapeHtml(s.notes || '')}</textarea>
         </div>
         <div class="edit-actions">
-          <button class="btn-sm" onclick="saveEdit(${s.id})">Sauvegarder</button>
-          <button class="btn-sm" onclick="cancelEdit(${s.id})">Annuler</button>
-          <button class="btn-danger" onclick="deleteSession(${s.id})">Supprimer</button>
+          <button class="btn-sm" onclick="saveEdit(${s.id})">${t('edit_save')}</button>
+          <button class="btn-sm" onclick="cancelEdit(${s.id})">${t('edit_cancel')}</button>
+          <button class="btn-danger" onclick="deleteSession(${s.id})">${t('edit_delete')}</button>
         </div>
       </div>
     </div>`;
@@ -606,21 +607,21 @@ function getCardChanges(id: number): string[] {
   if (!session) return [];
   const changes: string[] = [];
   const name = (document.getElementById('ename-' + id) as HTMLInputElement)?.value.trim() || undefined;
-  if (name !== (session.name || undefined)) changes.push(`Nom : "${session.name || '—'}" → "${name || '—'}"`);
+  if (name !== (session.name || undefined)) changes.push(t('change_name', { from: session.name || '—', to: name || '—' }));
   const notes = (document.getElementById('enotes-' + id) as HTMLTextAreaElement)?.value.trim() || undefined;
-  if (notes !== (session.notes || undefined)) changes.push('Commentaire modifié');
+  if (notes !== (session.notes || undefined)) changes.push(t('change_comment'));
   const ac = Array.from(document.querySelectorAll<HTMLElement>(`#eaircraft-${id} .aircraft-toggle.selected`)).map(el => el.dataset.aircraft!).filter(Boolean);
   const savedAc = session.aircraft || [];
   const acAdd = ac.filter(a => !savedAc.includes(a)), acRem = savedAc.filter(a => !ac.includes(a));
-  if (acAdd.length) changes.push(`Appareil ajouté : ${acAdd.join(', ')}`);
-  if (acRem.length) changes.push(`Appareil retiré : ${acRem.join(', ')}`);
+  if (acAdd.length) changes.push(t('change_aircraft_added', { list: acAdd.join(', ') }));
+  if (acRem.length) changes.push(t('change_aircraft_removed', { list: acRem.join(', ') }));
   const mt = Array.from(document.querySelectorAll<HTMLElement>(`#emission-tags-${id} [data-mission]`)).map(el => el.dataset.mission!).filter(Boolean);
   const savedMt = session.missionTypes || [];
-  const mtAdd = mt.filter(t => !savedMt.includes(t)), mtRem = savedMt.filter(t => !mt.includes(t));
-  if (mtAdd.length) changes.push(`Mission ajoutée : ${mtAdd.join(', ')}`);
-  if (mtRem.length) changes.push(`Mission retirée : ${mtRem.join(', ')}`);
+  const mtAdd = mt.filter(t2 => !savedMt.includes(t2)), mtRem = savedMt.filter(t2 => !mt.includes(t2));
+  if (mtAdd.length) changes.push(t('change_mission_added', { list: mtAdd.join(', ') }));
+  if (mtRem.length) changes.push(t('change_mission_removed', { list: mtRem.join(', ') }));
   const res = calcEditDur(id);
-  if (res && (Math.abs(res.start.getTime() - session.startTs) > 59000 || Math.abs(res.end.getTime() - session.endTs) > 59000)) changes.push('Horaires modifiés');
+  if (res && (Math.abs(res.start.getTime() - session.startTs) > 59000 || Math.abs(res.end.getTime() - session.endTs) > 59000)) changes.push(t('change_times'));
   return changes;
 }
 
@@ -630,9 +631,9 @@ function checkCardEditing(_nav: () => void): boolean {
   if (!row || row.style.display === 'none') { editingCardId = null; return false; }
   const changes = getCardChanges(editingCardId);
   if (!changes.length) { cancelEdit(editingCardId); return false; }
-  const num = String(editingCardId).padStart(2, '0');
+  const num = pad(sessions.findIndex(s => s.id === editingCardId) >= 0 ? sessions.length - sessions.findIndex(s => s.id === editingCardId) : 0);
   const msg = document.getElementById('card-confirm-msg')!;
-  msg.innerHTML = `Vous modifiez le <b>Vol #${num}</b> :<br><b>${changes.join('<br>')}</b><br><br>Voulez-vous sauvegarder ces changements ?`;
+  msg.innerHTML = t('confirm_card', { num, changes: changes.join('<br>') });
   (document.getElementById('card-confirm-overlay') as HTMLElement).style.display = 'flex';
   return true;
 }
@@ -727,21 +728,21 @@ function getSettingsChanges(): string[] {
   const changes: string[] = [];
   const exp = (document.getElementById('st-export-profile') as HTMLInputElement)?.checked;
   const imp = (document.getElementById('st-import-profile') as HTMLInputElement)?.checked;
-  if (exp !== !!profile.exportProfile) changes.push(`"Inclure le profil dans l'export JSON" → ${exp ? 'activé' : 'désactivé'}`);
-  if (imp !== !!profile.importProfile) changes.push(`"Remplacer mon profil lors d'un import JSON" → ${imp ? 'activé' : 'désactivé'}`);
+  if (exp !== !!profile.exportProfile) changes.push(t('change_setting_export', { state: exp ? t('change_enabled') : t('change_disabled') }));
+  if (imp !== !!profile.importProfile) changes.push(t('change_setting_import', { state: imp ? t('change_enabled') : t('change_disabled') }));
   return changes;
 }
 
 function getProfileChanges(): string[] {
   const changes: string[] = [];
   const nameEl = document.getElementById('pf-name-input') as HTMLInputElement | null;
-  if (nameEl && nameEl.value.trim() !== profile.name) changes.push(`Nom : "${profile.name || '—'}" → "${nameEl.value.trim() || '—'}"`);
+  if (nameEl && nameEl.value.trim() !== profile.name) changes.push(t('change_name', { from: profile.name || '—', to: nameEl.value.trim() || '—' }));
   const selected = new Set(Array.from(document.querySelectorAll<HTMLElement>('.pf-module-toggle.selected')).map(el => el.dataset.module!).filter(Boolean));
   const saved = new Set(profile.modules);
   const added = [...selected].filter(m => !saved.has(m));
   const removed = [...saved].filter(m => !selected.has(m));
-  if (added.length) changes.push(`Ajouté : ${added.join(', ')}`);
-  if (removed.length) changes.push(`Retiré : ${removed.join(', ')}`);
+  if (added.length) changes.push(t('change_modules_added', { list: added.join(', ') }));
+  if (removed.length) changes.push(t('change_modules_removed', { list: removed.join(', ') }));
   return changes;
 }
 
@@ -750,7 +751,7 @@ function checkProfileEditing(_nav: () => void): boolean {
   const changes = getProfileChanges();
   if (!changes.length) { cancelEditProfile(); return false; }
   const msg = document.getElementById('pf-confirm-msg')!;
-  msg.innerHTML = `Vous avez modifié :<br><b>${changes.join('<br>')}</b><br><br>Voulez-vous sauvegarder ces changements ?`;
+  msg.innerHTML = t('confirm_profile', { changes: changes.join('<br>') });
   (document.getElementById('pf-confirm-overlay') as HTMLElement).style.display = 'flex';
   return true;
 }
@@ -772,13 +773,13 @@ function isNewFlightDirty(): boolean {
 function getNewFlightChanges(): string[] {
   const changes: string[] = [];
   const name = (document.getElementById('nf-name') as HTMLInputElement)?.value.trim();
-  if (name) changes.push(`Nom : "${name}"`);
+  if (name) changes.push(t('change_flight_name', { name }));
   const mt = Array.from(document.querySelectorAll<HTMLElement>('#emission-tags--1 [data-mission]')).map(el => el.dataset.mission!).filter(Boolean);
-  if (mt.length) changes.push(`Type(s) de mission : ${mt.join(', ')}`);
+  if (mt.length) changes.push(t('change_missions', { list: mt.join(', ') }));
   const ac = Array.from(document.querySelectorAll<HTMLElement>('#nf-aircraft-picker .aircraft-toggle.selected')).map(el => el.dataset.aircraft!).filter(Boolean);
-  if (ac.length) changes.push(`Appareil(s) : ${ac.join(', ')}`);
+  if (ac.length) changes.push(t('change_aircraft', { list: ac.join(', ') }));
   const notes = (document.getElementById('nf-notes') as HTMLTextAreaElement)?.value.trim();
-  if (notes) changes.push('Commentaire renseigné');
+  if (notes) changes.push(t('change_comment_filled'));
   return changes;
 }
 
@@ -789,8 +790,8 @@ function checkNewFlight(_nav: () => void): boolean {
   const changes = getNewFlightChanges();
   const msg = document.getElementById('nf-confirm-msg')!;
   msg.innerHTML = changes.length
-    ? `Vous avez commencé à créer un vol :<br><b>${changes.join('<br>')}</b><br><br>Voulez-vous sauvegarder ce vol ?`
-    : `Vous avez des modifications non sauvegardées.<br>Voulez-vous sauvegarder ce vol ?`;
+    ? t('confirm_new_flight_changes', { changes: changes.join('<br>') })
+    : t('confirm_new_flight_unsaved');
   (document.getElementById('nf-confirm-overlay') as HTMLElement).style.display = 'flex';
   return true;
 }
@@ -806,8 +807,8 @@ function checkSettingsDirty(_nav: () => void): boolean {
   const changes = getSettingsChanges();
   const msg = document.getElementById('st-confirm-msg')!;
   msg.innerHTML = changes.length
-    ? `Vous avez modifié :<br><b>${changes.join('<br>')}</b><br><br>Voulez-vous sauvegarder ces changements ?`
-    : `Vous avez des modifications non sauvegardées.<br>Voulez-vous les sauvegarder ?`;
+    ? t('confirm_settings_changes', { changes: changes.join('<br>') })
+    : t('confirm_settings_unsaved');
   (document.getElementById('st-confirm-overlay') as HTMLElement).style.display = 'flex';
   return true;
 }
@@ -934,15 +935,15 @@ function getEffectiveOwnedModuleNames(): Set<string> {
   return owned;
 }
 
-function missionTagHtml(id: number, t: string): string {
-  return `<span class="mission-tag" data-mission="${escapeHtml(t)}">${escapeHtml(t)}<button type="button" class="mission-tag-remove" onclick="removeMissionType(${id},'${escapeHtml(t)}')"><img src="./icons/close.png" alt="×"></button></span>`;
+function missionTagHtml(id: number, type: string): string {
+  return `<span class="mission-tag" data-mission="${escapeHtml(type)}">${escapeHtml(type)}<button type="button" class="mission-tag-remove" onclick="removeMissionType(${id},'${escapeHtml(type)}')"><img src="./icons/close.png" alt="×"></button></span>`;
 }
 
 function renderMissionPickerHtml(id: number, selected: string[]): string {
-  const tags = selected.map(t => missionTagHtml(id, t)).join('');
-  const chips = MISSION_TYPES.map(t => {
-    const sel = selected.includes(t);
-    return `<button type="button" class="mission-chip${sel ? ' selected' : ''}" onclick="toggleMissionType(${id},'${escapeHtml(t)}')" data-mission="${escapeHtml(t)}">${escapeHtml(t)}</button>`;
+  const tags = selected.map(type => missionTagHtml(id, type)).join('');
+  const chips = MISSION_TYPES.map(type => {
+    const sel = selected.includes(type);
+    return `<button type="button" class="mission-chip${sel ? ' selected' : ''}" onclick="toggleMissionType(${id},'${escapeHtml(type)}')" data-mission="${escapeHtml(type)}">${escapeHtml(type)}</button>`;
   }).join('');
   return `
     <div class="mission-picker-row">
@@ -1006,7 +1007,7 @@ function removeMissionType(id: number, type: string): void {
 }
 
 function renderAircraftPickerHtml(selected: string[]): string {
-  if (!profile.modules.length) return `<span class="pf-empty">Aucun module configuré dans le profil.</span>`;
+  if (!profile.modules.length) return `<span class="pf-empty">${t('profile_no_modules_configured')}</span>`;
   const ownedMods = DCS_MODULES.filter(mod => getEffectiveOwnedModuleNames().has(mod.name));
   const modelsSet = new Set<string>();
   ownedMods.forEach(mod => (mod.variants ?? [mod.name]).forEach(m => modelsSet.add(m)));
@@ -1027,16 +1028,16 @@ function renderProfileView(): void {
   const content = document.getElementById('pf-content')!;
   const tags = profile.modules.length
     ? profile.modules.map(m => `<span class="pf-module-tag">${escapeHtml(m)}</span>`).join('')
-    : `<span class="pf-empty">Aucun module sélectionné</span>`;
+    : `<span class="pf-empty">${t('profile_no_modules')}</span>`;
   content.innerHTML = `
     <div class="pf-view">
       <div class="pf-avatar-section">
         ${avatarHtml(profile.name, profile.avatar, 80)}
-        <div class="pf-pilot-name">${profile.name ? escapeHtml(profile.name) : '<span class="pf-empty">Nom non défini</span>'}</div>
-        <button class="btn-sm" onclick="editProfile()">Éditer le profil</button>
+        <div class="pf-pilot-name">${profile.name ? escapeHtml(profile.name) : `<span class="pf-empty">${t('profile_name_undefined')}</span>`}</div>
+        <button class="btn-sm" onclick="editProfile()">${t('profile_edit_btn')}</button>
       </div>
       <div class="pf-section">
-        <div class="pf-section-title">Modules DCS possédés (${profile.modules.length})</div>
+        <div class="pf-section-title">${t('profile_modules_count', { count: profile.modules.length })}</div>
         <div class="pf-modules-display">${tags}</div>
       </div>
     </div>`;
@@ -1050,32 +1051,32 @@ function editProfile(): void {
     const sel = profile.modules.includes(mod.name);
     return `<button type="button" class="pf-module-toggle${sel ? ' selected' : ''}" onclick="this.classList.toggle('selected')" data-module="${escapeHtml(mod.name)}">${escapeHtml(mod.name)}</button>`;
   }).join('');
-  const removeBtn = profile.avatar ? `<button class="btn-sm" onclick="removeAvatar()">Supprimer la photo</button>` : '';
+  const removeBtn = profile.avatar ? `<button class="btn-sm" onclick="removeAvatar()">${t('profile_delete_photo')}</button>` : '';
   content.innerHTML = `
     <div class="pf-edit">
       <div class="pf-field">
-        <label class="pf-label">Photo de profil</label>
+        <label class="pf-label">${t('profile_photo_label')}</label>
         <div class="pf-avatar-edit-row">
           <div class="pf-avatar-preview" id="pf-avatar-preview">${avatarHtml(profile.name, profile.avatar, 72)}</div>
           <div class="pf-avatar-controls">
-            <label class="btn-sm pf-avatar-label" for="pf-avatar-input">Choisir une image</label>
+            <label class="btn-sm pf-avatar-label" for="pf-avatar-input">${t('profile_choose_image')}</label>
             <input type="file" id="pf-avatar-input" accept="image/*" style="display:none" onchange="uploadAvatar(event)">
-            <span class="pf-avatar-hint">512 × 512 px recommandé (carré)</span>
+            <span class="pf-avatar-hint">${t('profile_image_hint')}</span>
             <div id="pf-avatar-remove-wrap">${removeBtn}</div>
           </div>
         </div>
       </div>
       <div class="pf-field">
-        <label class="pf-label">Nom du pilote</label>
+        <label class="pf-label">${t('profile_pilot_name')}</label>
         <input type="text" id="pf-name-input" class="pf-input" value="${escapeHtml(profile.name)}" placeholder="">
       </div>
       <div class="pf-field">
-        <label class="pf-label">Modules DCS possédés</label>
+        <label class="pf-label">${t('profile_modules')}</label>
         <div class="pf-modules-grid">${grid}</div>
       </div>
       <div class="pf-edit-actions">
-        <button class="btn-sm" onclick="saveProfile()">Sauvegarder</button>
-        <button class="btn-sm" onclick="cancelEditProfile()">Annuler</button>
+        <button class="btn-sm" onclick="saveProfile()">${t('profile_save')}</button>
+        <button class="btn-sm" onclick="cancelEditProfile()">${t('profile_cancel')}</button>
       </div>
     </div>`;
 }
@@ -1104,7 +1105,7 @@ function uploadAvatar(event: Event): void {
       const preview = document.getElementById('pf-avatar-preview');
       if (preview) preview.innerHTML = `<img class="pf-avatar-img" src="${dataUrl}" alt="avatar" width="72" height="72">`;
       const wrap = document.getElementById('pf-avatar-remove-wrap');
-      if (wrap && !wrap.querySelector('button')) wrap.innerHTML = `<button class="btn-sm" onclick="removeAvatar()">Supprimer la photo</button>`;
+      if (wrap && !wrap.querySelector('button')) wrap.innerHTML = `<button class="btn-sm" onclick="removeAvatar()">${t('profile_delete_photo')}</button>`;
     };
     img.src = e.target?.result as string;
   };
@@ -1138,9 +1139,31 @@ async function saveProfile(): Promise<void> {
   await saveToFile();
 }
 
+// ─── i18n refresh ──────────────────────────────────────────────────────────
+
+async function setLanguage(lang: string): Promise<void> {
+  await setLang(lang);
+  applyStaticTranslations();
+  renderSessions();
+  // Timer state
+  const siLabel = document.getElementById('si-label');
+  if (siLabel) siLabel.textContent = activeStart ? t('session_active') : t('session_waiting');
+  const btn = document.getElementById('btn-toggle') as HTMLButtonElement | null;
+  if (btn) btn.textContent = activeStart ? t('session_stop') : t('session_start');
+  // Save indicator text
+  const si = document.getElementById('save-indicator');
+  if (si) si.textContent = t('save_indicator');
+  // Profile page if visible
+  const pfPage = document.getElementById('profile-page');
+  if (pfPage && pfPage.style.display !== 'none') {
+    if (profileEditing) editProfile(); else renderProfileView();
+  }
+  syncBurgerState();
+}
+
 // ─── Indicateur de sauvegarde ──────────────────────────────────────────────
 
-document.body.insertAdjacentHTML('beforeend', '<div id="save-indicator">✓ Sauvegardé</div>');
+document.body.insertAdjacentHTML('beforeend', `<div id="save-indicator">${t('save_indicator')}</div>`);
 
 // ─── Exposer les fonctions au HTML inline ──────────────────────────────────
 
@@ -1188,6 +1211,7 @@ window.cancelEditProfile = cancelEditProfile;
 window.saveProfile = saveProfile;
 (window as any).uploadAvatar = uploadAvatar;
 (window as any).removeAvatar = removeAvatar;
+(window as any).setLanguage = setLanguage;
 window.tbMinimize = () => getCurrentWindow().minimize();
 window.tbMaximize = () => getCurrentWindow().toggleMaximize();
 window.tbClose = () => getCurrentWindow().close();
@@ -1195,7 +1219,16 @@ window.tbClose = () => getCurrentWindow().close();
 // ─── Démarrage ─────────────────────────────────────────────────────────────
 
 window.addEventListener('DOMContentLoaded', async () => {
+  await initI18n();
   await loadFromFile();
+  applyStaticTranslations();
+  // Set dynamic initial state labels
+  const siLabel = document.getElementById('si-label');
+  if (siLabel) siLabel.textContent = t('session_waiting');
+  const btn = document.getElementById('btn-toggle') as HTMLButtonElement | null;
+  if (btn) btn.textContent = t('session_start');
+  const si = document.getElementById('save-indicator');
+  if (si) si.textContent = t('save_indicator');
   updateProfileBtn();
   updateSteamDisplay();
   updateTotal();
