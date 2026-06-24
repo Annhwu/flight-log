@@ -29,6 +29,7 @@ interface Profile {
   modules: string[];
   exportProfile?: boolean;
   importProfile?: boolean;
+  avatar?: string;
 }
 
 interface AppData {
@@ -151,6 +152,7 @@ let pendingSession: Session | null = null;
 let profile: Profile = { name: '', modules: [] };
 let settingsDirty = false;
 let profileEditing = false;
+let pendingAvatarChange: string | null | undefined = undefined;
 
 // ─── Utilitaires ───────────────────────────────────────────────────────────
 
@@ -162,6 +164,29 @@ function fmtDateInput(d: Date): string { return d.getFullYear() + '-' + pad(d.ge
 function minsToHM(m: number): string { const h = Math.floor(m / 60), mm = Math.round(m % 60); return pad(h) + 'h ' + pad(mm) + 'm'; }
 function secsToHMS(s: number): string { const h = Math.floor(s / 3600), mm = Math.floor((s % 3600) / 60), ss = Math.round(s % 60); return pad(h) + 'h ' + pad(mm) + 'm ' + pad(ss) + 's'; }
 function durLabel(min: number): string { const d = Math.floor(min / 1440), h = Math.floor((min % 1440) / 60), m = Math.round(min % 60); return (d > 0 ? d + 'j ' : '') + pad(h) + 'h ' + pad(m) + 'm'; }
+
+function generateBoringAvatar(seed: string, size = 80): string {
+  const PALETTE = ['#0A0310','#49007E','#FF005B','#FF7D10','#FFB238'];
+  function djb2(s: string): number {
+    let h = 5381;
+    for (let i = 0; i < s.length; i++) h = ((h << 5) + h) ^ s.charCodeAt(i);
+    return Math.abs(h);
+  }
+  function pick(n: number, salt: number): string { return PALETTE[Math.abs(n + salt * 7) % PALETTE.length]; }
+  function unit(n: number, range: number, salt: number): number { return Math.abs(n + salt * 13) % range; }
+  const n = djb2(seed || 'pilot');
+  const bg = pick(n, 0), face = pick(n, 1), accent = pick(n, 2), detail = pick(n, 3);
+  const s = size;
+  const fX = s * 0.27, fY = s * 0.22, fW = s * 0.46, fH = s * 0.54, fRx = s * 0.12;
+  const eyeY = fY + fH * 0.36, eyeSz = s * 0.10, eyeRx = eyeSz * 0.3;
+  const spread = unit(n, 5, 5) - 2;
+  const e1X = fX + fW * 0.18 + spread, e2X = fX + fW * 0.62 - spread;
+  const mY = fY + fH * 0.68, mW = fW * (0.35 + unit(n, 3, 6) * 0.07), mH = s * 0.08;
+  const mX = fX + (fW - mW) / 2;
+  const rot = unit(n, 18, 3) - 9;
+  const cx = s / 2, cy = s / 2;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${s} ${s}" width="${s}" height="${s}"><rect width="${s}" height="${s}" fill="${bg}"/><g transform="rotate(${rot} ${cx} ${cy})"><rect x="${fX}" y="${fY}" width="${fW}" height="${fH}" rx="${fRx}" fill="${face}"/><rect x="${e1X}" y="${eyeY}" width="${eyeSz}" height="${eyeSz}" rx="${eyeRx}" fill="${accent}"/><rect x="${e2X}" y="${eyeY}" width="${eyeSz}" height="${eyeSz}" rx="${eyeRx}" fill="${accent}"/><rect x="${mX}" y="${mY}" width="${mW}" height="${mH}" rx="${mH/2}" fill="${detail}"/></g></svg>`;
+}
 
 // ─── Sauvegarde automatique via Tauri ──────────────────────────────────────
 
@@ -218,6 +243,7 @@ function loadFile(event: Event): void {
   const input = event.target as HTMLInputElement;
   const file = input.files?.[0];
   if (!file) return;
+  input.value = '';
   const reader = new FileReader();
   reader.onload = async (e) => {
     try {
@@ -227,6 +253,8 @@ function loadFile(event: Event): void {
       if (data.profile && profile.importProfile) {
         profile = { ...data.profile, importProfile: profile.importProfile, exportProfile: profile.exportProfile };
         updateProfileBtn();
+        const pfPage = document.getElementById('profile-page');
+        if (pfPage && pfPage.style.display !== 'none') renderProfileView();
       }
       await saveToFile();
       updateSteamDisplay();
@@ -538,7 +566,11 @@ async function deleteSession(id: number): Promise<void> {
 
 function updateProfileBtn(): void {
   const btn = document.getElementById('profile-btn');
-  if (btn) btn.textContent = profile.name ? profile.name.charAt(0).toUpperCase() : '?';
+  if (!btn) return;
+  const src = profile.avatar
+    ? profile.avatar
+    : (() => { const svg = generateBoringAvatar(profile.name || 'pilot', 32); return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg))); })();
+  btn.innerHTML = `<img src="${src}" alt="profil" style="width:100%;height:100%;border-radius:50%;object-fit:cover;display:block;">`;
 }
 
 function hidAllPages(): void {
@@ -824,16 +856,22 @@ function renderAircraftPickerHtml(selected: string[]): string {
   }).join('');
 }
 
+function avatarHtml(name: string, avatar?: string, size = 80): string {
+  if (avatar) return `<img class="pf-avatar-img" src="${avatar}" alt="avatar" width="${size}" height="${size}">`;
+  const svgRaw = generateBoringAvatar(name || 'pilot', size);
+  const b64 = btoa(unescape(encodeURIComponent(svgRaw)));
+  return `<img class="pf-avatar-img" src="data:image/svg+xml;base64,${b64}" alt="avatar" width="${size}" height="${size}">`;
+}
+
 function renderProfileView(): void {
   const content = document.getElementById('pf-content')!;
-  const initial = profile.name ? profile.name.charAt(0).toUpperCase() : '?';
   const tags = profile.modules.length
     ? profile.modules.map(m => `<span class="pf-module-tag">${escapeHtml(m)}</span>`).join('')
     : `<span class="pf-empty">Aucun module sélectionné</span>`;
   content.innerHTML = `
     <div class="pf-view">
       <div class="pf-avatar-section">
-        <div class="pf-avatar-lg">${initial}</div>
+        ${avatarHtml(profile.name, profile.avatar, 80)}
         <div class="pf-pilot-name">${profile.name ? escapeHtml(profile.name) : '<span class="pf-empty">Nom non défini</span>'}</div>
         <button class="btn-sm" onclick="editProfile()">Éditer le profil</button>
       </div>
@@ -846,13 +884,27 @@ function renderProfileView(): void {
 
 function editProfile(): void {
   profileEditing = true;
+  pendingAvatarChange = undefined;
   const content = document.getElementById('pf-content')!;
   const grid = DCS_MODULES.map(mod => {
     const sel = profile.modules.includes(mod.name);
     return `<button type="button" class="pf-module-toggle${sel ? ' selected' : ''}" onclick="this.classList.toggle('selected')" data-module="${escapeHtml(mod.name)}">${escapeHtml(mod.name)}</button>`;
   }).join('');
+  const removeBtn = profile.avatar ? `<button class="btn-sm" onclick="removeAvatar()">Supprimer la photo</button>` : '';
   content.innerHTML = `
     <div class="pf-edit">
+      <div class="pf-field">
+        <label class="pf-label">Photo de profil</label>
+        <div class="pf-avatar-edit-row">
+          <div class="pf-avatar-preview" id="pf-avatar-preview">${avatarHtml(profile.name, profile.avatar, 72)}</div>
+          <div class="pf-avatar-controls">
+            <label class="btn-sm pf-avatar-label" for="pf-avatar-input">Choisir une image</label>
+            <input type="file" id="pf-avatar-input" accept="image/*" style="display:none" onchange="uploadAvatar(event)">
+            <span class="pf-avatar-hint">512 × 512 px recommandé (carré)</span>
+            <div id="pf-avatar-remove-wrap">${removeBtn}</div>
+          </div>
+        </div>
+      </div>
       <div class="pf-field">
         <label class="pf-label">Nom du pilote</label>
         <input type="text" id="pf-name-input" class="pf-input" value="${escapeHtml(profile.name)}" placeholder="">
@@ -868,14 +920,55 @@ function editProfile(): void {
     </div>`;
 }
 
-function cancelEditProfile(): void { profileEditing = false; renderProfileView(); }
+function uploadAvatar(event: Event): void {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+  input.value = '';
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      const SIZE = 128;
+      const canvas = document.createElement('canvas');
+      canvas.width = SIZE; canvas.height = SIZE;
+      const ctx = canvas.getContext('2d')!;
+      const s = Math.min(img.width, img.height);
+      const ox = (img.width - s) / 2, oy = (img.height - s) / 2;
+      ctx.drawImage(img, ox, oy, s, s, 0, 0, SIZE, SIZE);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+      pendingAvatarChange = dataUrl;
+      const preview = document.getElementById('pf-avatar-preview');
+      if (preview) preview.innerHTML = `<img class="pf-avatar-img" src="${dataUrl}" alt="avatar" width="72" height="72">`;
+      const wrap = document.getElementById('pf-avatar-remove-wrap');
+      if (wrap && !wrap.querySelector('button')) wrap.innerHTML = `<button class="btn-sm" onclick="removeAvatar()">Supprimer la photo</button>`;
+    };
+    img.src = e.target?.result as string;
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeAvatar(): void {
+  const nameVal = (document.getElementById('pf-name-input') as HTMLInputElement)?.value || profile.name;
+  pendingAvatarChange = null;
+  const preview = document.getElementById('pf-avatar-preview');
+  if (preview) preview.innerHTML = avatarHtml(nameVal, undefined, 72);
+  const wrap = document.getElementById('pf-avatar-remove-wrap');
+  if (wrap) wrap.innerHTML = '';
+}
+
+function cancelEditProfile(): void { profileEditing = false; pendingAvatarChange = undefined; renderProfileView(); }
 
 async function saveProfile(): Promise<void> {
   profileEditing = false;
   const name = (document.getElementById('pf-name-input') as HTMLInputElement).value.trim();
   const modules = Array.from(document.querySelectorAll<HTMLElement>('.pf-module-toggle.selected'))
     .map(el => el.dataset.module!).filter(Boolean);
-  profile = { ...profile, name, modules };
+  const avatar = pendingAvatarChange !== undefined
+    ? (pendingAvatarChange ?? undefined)
+    : profile.avatar;
+  pendingAvatarChange = undefined;
+  profile = { ...profile, name, modules, avatar };
   updateProfileBtn();
   renderProfileView();
   renderSessions();
@@ -925,6 +1018,8 @@ window.hideProfile = hideProfile;
 window.editProfile = editProfile;
 window.cancelEditProfile = cancelEditProfile;
 window.saveProfile = saveProfile;
+(window as any).uploadAvatar = uploadAvatar;
+(window as any).removeAvatar = removeAvatar;
 window.tbMinimize = () => getCurrentWindow().minimize();
 window.tbMaximize = () => getCurrentWindow().toggleMaximize();
 window.tbClose = () => getCurrentWindow().close();
