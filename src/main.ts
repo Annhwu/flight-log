@@ -481,8 +481,8 @@ function renderSessions(): void {
           </div>
         </div>
         <div class="notes-group">
-          <label class="edit-block-label">Nom du vol</label>
-          <input type="text" id="ename-${s.id}" class="debrief-input" style="width:100%" placeholder="ex : Patrouille sur le Caucase" value="${escapeHtml(s.name || '')}">
+          <label class="edit-block-label">Nom</label>
+          <input type="text" id="ename-${s.id}" class="debrief-input" style="width:100%" placeholder="Nom" value="${escapeHtml(s.name || '')}">
         </div>
         <div class="notes-group">
           <label class="edit-block-label">Type(s) de mission</label>
