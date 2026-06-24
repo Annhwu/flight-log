@@ -419,8 +419,8 @@ function renderSessions(): void {
           ${aircraftRow}
         </div>
         <div class="s-dur">${durLabel(s.durationMin)}</div>
-        <button class="btn-icon" onclick="event.stopPropagation();toggleEdit(${s.id})" title="Éditer"><img src="./src/icons/pencil.png" width="16" height="16"></button>
-        <button class="btn-icon btn-icon-danger" onclick="event.stopPropagation();deleteSession(${s.id})" title="Supprimer"><img src="./src/icons/trash.png" width="16" height="16"></button>
+        <button class="btn-icon" onclick="event.stopPropagation();toggleEdit(${s.id})" title="Éditer"><img src="./icons/pencil.png" width="16" height="16"></button>
+        <button class="btn-icon btn-icon-danger" onclick="event.stopPropagation();deleteSession(${s.id})" title="Supprimer"><img src="./icons/trash.png" width="16" height="16"></button>
       </div>
       <div class="s-details" id="details-${s.id}">
         ${notesFull}
@@ -674,7 +674,7 @@ function getEffectiveOwnedModuleNames(): Set<string> {
 }
 
 function missionTagHtml(id: number, t: string): string {
-  return `<span class="mission-tag" data-mission="${escapeHtml(t)}">${escapeHtml(t)}<button type="button" class="mission-tag-remove" onclick="removeMissionType(${id},'${escapeHtml(t)}')"><img src="./src/icons/close.png" alt="×"></button></span>`;
+  return `<span class="mission-tag" data-mission="${escapeHtml(t)}">${escapeHtml(t)}<button type="button" class="mission-tag-remove" onclick="removeMissionType(${id},'${escapeHtml(t)}')"><img src="./icons/close.png" alt="×"></button></span>`;
 }
 
 function renderMissionPickerHtml(id: number, selected: string[]): string {
@@ -722,7 +722,7 @@ function renderAircraftPickerHtml(selected: string[]): string {
   ownedMods.forEach(mod => (mod.variants ?? [mod.name]).forEach(m => modelsSet.add(m)));
   return Array.from(modelsSet).sort().map(model => {
     const sel = selected.includes(model);
-    return `<button type="button" class="aircraft-toggle${sel ? ' selected' : ''}" onclick="this.classList.toggle('selected')" data-aircraft="${escapeHtml(model)}">${escapeHtml(model)}<img class="aircraft-toggle-close" src="./src/icons/close.png" alt="×"></button>`;
+    return `<button type="button" class="aircraft-toggle${sel ? ' selected' : ''}" onclick="this.classList.toggle('selected')" data-aircraft="${escapeHtml(model)}">${escapeHtml(model)}<img class="aircraft-toggle-close" src="./icons/close.png" alt="×"></button>`;
   }).join('');
 }
 
