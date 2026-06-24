@@ -818,11 +818,40 @@ function renderMissionPickerHtml(id: number, selected: string[]): string {
       <div class="mission-tags-row" id="emission-tags-${id}">${tags}</div>
       <button type="button" class="mission-add-btn" onclick="toggleMissionPanel(${id})">+</button>
     </div>
-    <div class="mission-panel" id="emission-panel-${id}">${chips}</div>`;
+    <div class="mission-panel" id="emission-panel-${id}">
+      ${chips}
+      <div class="mission-custom-row">
+        <input type="text" class="mission-custom-input" id="emission-custom-${id}" placeholder="CUSTOM" oninput="resizeMissionInput(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();addCustomMissionType(${id});resizeMissionInput(this);}">
+        <button type="button" class="mission-custom-add" onclick="addCustomMissionType(${id})">+</button>
+      </div>
+    </div>`;
+}
+
+function addCustomMissionType(id: number): void {
+  const input = document.getElementById(`emission-custom-${id}`) as HTMLInputElement | null;
+  if (!input) return;
+  const val = input.value.trim();
+  if (!val) return;
+  input.value = '';
+  const tagsRow = document.getElementById(`emission-tags-${id}`);
+  if (!tagsRow) return;
+  if (tagsRow.querySelector(`[data-mission="${CSS.escape(val)}"]`)) return;
+  tagsRow.insertAdjacentHTML('beforeend', missionTagHtml(id, val));
+}
+
+function resizeMissionInput(input: HTMLInputElement): void {
+  const span = document.createElement('span');
+  Object.assign(span.style, { position:'fixed', top:'-9999px', left:'-9999px', whiteSpace:'pre', visibility:'hidden', fontFamily:'Inter,sans-serif', fontSize:'12px' });
+  span.textContent = input.value || input.placeholder;
+  document.body.appendChild(span);
+  input.style.width = (span.offsetWidth + 12) + 'px';
+  document.body.removeChild(span);
 }
 
 function toggleMissionPanel(id: number): void {
   document.getElementById(`emission-panel-${id}`)?.classList.toggle('open');
+  const input = document.getElementById(`emission-custom-${id}`) as HTMLInputElement | null;
+  if (input) resizeMissionInput(input);
 }
 
 function toggleMissionType(id: number, type: string): void {
@@ -1012,6 +1041,8 @@ window.showProfile = showProfile;
 (window as any).toggleMissionPanel = toggleMissionPanel;
 (window as any).toggleMissionType = toggleMissionType;
 (window as any).removeMissionType = removeMissionType;
+(window as any).addCustomMissionType = addCustomMissionType;
+(window as any).resizeMissionInput = resizeMissionInput;
 (window as any).closeBurger = closeBurger;
 (window as any).syncBurgerSearch = syncBurgerSearch;
 window.hideProfile = hideProfile;
