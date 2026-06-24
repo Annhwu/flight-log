@@ -334,6 +334,7 @@ function updateElapsed(): void {
   if (!activeStart) return;
   const el = document.getElementById('si-elapsed');
   if (el) el.textContent = '⏱ ' + secsToHMS(Math.floor((Date.now() - activeStart.getTime()) / 1000));
+  syncBurgerState();
 }
 
 // ─── Édition ───────────────────────────────────────────────────────────────
@@ -522,17 +523,59 @@ function updateProfileBtn(): void {
 }
 
 function showProfile(): void {
-  (document.getElementById('navbar') as HTMLElement).style.display = 'none';
   (document.getElementById('main')  as HTMLElement).style.display = 'none';
-  const pg = document.getElementById('profile-page') as HTMLElement;
-  pg.style.display = 'flex';
+  (document.getElementById('profile-page') as HTMLElement).style.display = 'flex';
+  document.getElementById('nav-historique')?.classList.remove('active');
+  document.getElementById('profile-btn')?.classList.add('active');
   renderProfileView();
 }
 
 function hideProfile(): void {
-  (document.getElementById('navbar') as HTMLElement).style.display = '';
   (document.getElementById('main')  as HTMLElement).style.display = '';
   (document.getElementById('profile-page') as HTMLElement).style.display = 'none';
+  document.getElementById('nav-historique')?.classList.add('active');
+  document.getElementById('profile-btn')?.classList.remove('active');
+}
+
+function showHistorique(): void {
+  (document.getElementById('main')  as HTMLElement).style.display = '';
+  (document.getElementById('profile-page') as HTMLElement).style.display = 'none';
+  document.getElementById('nav-historique')?.classList.add('active');
+  document.getElementById('burger-historique')?.classList.add('active');
+  document.getElementById('profile-btn')?.classList.remove('active');
+  closeBurger();
+}
+
+function toggleBurger(): void {
+  document.getElementById('burger-menu')?.classList.toggle('open');
+  syncBurgerState();
+}
+
+function closeBurger(): void {
+  document.getElementById('burger-menu')?.classList.remove('open');
+}
+
+function syncBurgerState(): void {
+  const siLabel   = document.getElementById('si-label')?.textContent ?? '';
+  const siTime    = document.getElementById('si-time')?.textContent ?? '';
+  const siElapsed = document.getElementById('si-elapsed')?.textContent ?? '';
+  const btnText   = (document.getElementById('btn-toggle') as HTMLButtonElement)?.textContent ?? '';
+  const bLabel = document.getElementById('burger-si-label');
+  const bTime  = document.getElementById('burger-si-time');
+  const bElap  = document.getElementById('burger-si-elapsed');
+  const bBtn   = document.getElementById('burger-btn-toggle');
+  if (bLabel) bLabel.textContent = siLabel;
+  if (bTime)  bTime.textContent  = siTime;
+  if (bElap)  bElap.textContent  = siElapsed;
+  if (bBtn)   bBtn.textContent   = btnText;
+  const active = document.getElementById('btn-toggle')?.classList.contains('active');
+  if (active) bBtn?.classList.add('active'); else bBtn?.classList.remove('active');
+}
+
+function syncBurgerSearch(): void {
+  const val = (document.getElementById('burger-search') as HTMLInputElement).value;
+  (document.getElementById('search-input') as HTMLInputElement).value = val;
+  renderSessions();
 }
 
 function getEffectiveOwnedModuleNames(): Set<string> {
@@ -632,6 +675,10 @@ window.confirmDebrief = confirmDebrief;
 window.skipDebrief = skipDebrief;
 window.filterSessions = renderSessions;
 window.showProfile = showProfile;
+(window as any).showHistorique = showHistorique;
+(window as any).toggleBurger = toggleBurger;
+(window as any).closeBurger = closeBurger;
+(window as any).syncBurgerSearch = syncBurgerSearch;
 window.hideProfile = hideProfile;
 window.editProfile = editProfile;
 window.cancelEditProfile = cancelEditProfile;

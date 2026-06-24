@@ -21,37 +21,54 @@
   </div>
   <div class="page">
     <div id="dcs-root">
-      <div id="header">
-        <div id="header-left">
+      <div id="navbar">
+        <div id="navbar-row1">
           <div id="header-title">Journal de Vol</div>
-        </div>
-        <div id="header-right">
-          <div id="total-box">
-            <span id="total-label">Total :</span><span id="total-hours">00h 00m</span>
+          <div id="navbar-row1-right">
+            <div id="total-box">
+              <span id="total-label">Total :</span><span id="total-hours">00h 00m</span>
+            </div>
+            <button id="profile-btn" class="profile-btn" onclick="showProfile()">?</button>
           </div>
-          <button id="profile-btn" class="profile-btn" onclick="showProfile()">?</button>
+        </div>
+        <div id="navbar-row2">
+          <div id="navbar-left">
+            <button class="nav-tab active" id="nav-historique" onclick="showHistorique()">Historique</button>
+          </div>
+          <div id="navbar-right">
+            <div id="session-zone">
+              <div id="session-info">
+                <div id="si-label">En attente</div>
+                <div id="si-time">--:--:--</div>
+                <div id="si-elapsed"></div>
+              </div>
+              <button id="btn-toggle" class="btn" onclick="toggleSession()">▶ ON</button>
+            </div>
+            <div id="search-bar">
+              <input type="text" id="search-input" placeholder=" " oninput="filterSessions()">
+              <span id="search-hint">Rechercher par nom, #numéro ou description…</span>
+            </div>
+          </div>
+          <button id="burger-btn" onclick="toggleBurger()" aria-label="Menu">&#9776;</button>
+        </div>
+        <div id="burger-menu">
+          <button class="nav-tab" id="burger-historique" onclick="showHistorique();closeBurger()">Historique</button>
+          <hr class="burger-sep">
+          <div id="burger-session-zone">
+            <div id="burger-si-label">En attente</div>
+            <div id="burger-si-time">--:--:--</div>
+            <div id="burger-si-elapsed"></div>
+            <button class="btn" id="burger-btn-toggle" onclick="toggleSession()">▶ ON</button>
+          </div>
+          <hr class="burger-sep">
+          <input type="text" id="burger-search" class="burger-search-input" placeholder="Rechercher…" oninput="syncBurgerSearch()">
         </div>
       </div>
       <div id="profile-page" style="display:none">
         <div id="pf-header">
-          <button class="btn-sm" onclick="hideProfile()">← Retour</button>
           <div id="pf-title">Profil</div>
         </div>
         <div id="pf-content"></div>
-      </div>
-      <div id="navbar">
-        <div id="search-bar">
-          <input type="text" id="search-input" placeholder=" " oninput="filterSessions()">
-          <span id="search-hint">Rechercher par nom, #numéro ou description…</span>
-        </div>
-        <div id="session-zone">
-          <div id="session-info">
-            <div id="si-label">En attente</div>
-            <div id="si-time">--:--:--</div>
-            <div id="si-elapsed"></div>
-          </div>
-          <button id="btn-toggle" class="btn" onclick="toggleSession()">▶ ON</button>
-        </div>
       </div>
       <div id="main">
         <div id="io-bar">
