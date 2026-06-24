@@ -88,7 +88,8 @@ body{background:var(--bg);height:100vh;display:flex;flex-direction:column;margin
 .btn.active:hover{background:#8a2020;color:#fff;}
 .btn-sm{font-family:'Inter',sans-serif;font-size:12px;border:1.5px solid var(--ink);background:#fff;color:var(--ink);padding:5px 12px;border-radius:6px;cursor:pointer;transition:background 0.15s;}
 .btn-sm:hover{background:#4a3d32;color:#fff;}
-.btn-danger{font-family:'Inter',sans-serif;font-size:12px;border:1.5px solid #8a2020;background:#fff;color:#8a2020;padding:5px 12px;border-radius:6px;cursor:pointer;margin-left:auto;}
+.btn-danger{font-family:'Inter',sans-serif;font-size:12px;border:1.5px solid #8a2020;background:#fff;color:#8a2020;padding:5px 12px;border-radius:6px;cursor:pointer;}
+.edit-actions .btn-danger{margin-left:auto;}
 .btn-danger:hover{background:#8a2020;color:#fff;}
 .btn-icon{font-size:15px;width:30px;height:30px;border-radius:6px;border:1.5px solid var(--border);background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.15s,border-color 0.15s;flex-shrink:0;}
 .btn-icon:hover{background:#4a3d32;border-color:#4a3d32;}
@@ -204,6 +205,7 @@ hr{border:none;border-top:1.5px solid var(--border);margin:12px 0;flex-shrink:0;
 .pf-module-toggle{font-family:'Inter',sans-serif;font-size:12px;padding:4px 10px;border-radius:20px;border:1.5px solid var(--border);background:#fff;color:var(--ink);cursor:pointer;transition:all 0.1s;}
 .pf-module-toggle.selected{background:#4a3d32;border-color:#4a3d32;color:#fff;}
 .pf-edit-actions{display:flex;gap:8px;padding-top:8px;}
+.pf-edit-actions .btn-sm{border-radius:35px;}
 .aircraft-picker-scroll{display:flex;flex-wrap:wrap;gap:6px;max-height:130px;overflow-y:auto;padding:4px 0;}
 .aircraft-group{display:flex;flex-wrap:wrap;align-items:center;gap:6px;width:100%;}
 .aircraft-group-label{font-size:11px;color:var(--ink3);font-weight:500;min-width:90px;flex-shrink:0;}
@@ -257,6 +259,7 @@ hr{border:none;border-top:1.5px solid var(--border);margin:12px 0;flex-shrink:0;
 .debrief-header{display:flex;align-items:baseline;justify-content:space-between;gap:8px;}
 .debrief-vol-num{font-family:var(--mono);font-size:18px;color:var(--ink);font-weight:bold;}
 .debrief-dur{font-family:var(--mono);font-size:13px;color:var(--ink3);}
+.debrief-times{font-family:var(--mono);font-size:12px;color:var(--ink3);margin-bottom:4px;}
 .debrief-field{display:flex;flex-direction:column;gap:6px;}
 .debrief-label{font-size:12px;color:var(--ink3);font-weight:500;}
 .debrief-input{font-family:'Inter',sans-serif;font-size:14px;background:#fff;border:1.5px solid var(--border);color:var(--ink);padding:8px 10px;border-radius:4px;outline:none;}
@@ -264,7 +267,8 @@ hr{border:none;border-top:1.5px solid var(--border);margin:12px 0;flex-shrink:0;
 .debrief-textarea{font-family:'Inter',sans-serif;font-size:13px;background:#fff;border:1.5px solid var(--border);color:var(--ink);padding:8px 10px;border-radius:4px;resize:none;min-height:80px;line-height:1.5;outline:none;}
 .debrief-textarea:focus{border-color:var(--ink2);}
 .debrief-input::placeholder,.debrief-textarea::placeholder{color:var(--ink3);}
-.debrief-actions{display:flex;gap:8px;justify-content:flex-end;}
+.debrief-actions{display:flex;gap:8px;justify-content:center;}
+.debrief-actions .btn-danger{font-size:14px;padding:9px 20px;border-radius:35px;transition:background 0.15s;}
 .s-name{font-size:13px;color:var(--ink);font-weight:500;margin-bottom:2px;}
 
 /* ── Divers ── */
