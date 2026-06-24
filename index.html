@@ -35,6 +35,7 @@
           <div id="navbar-left">
             <button class="nav-tab active" id="nav-historique" onclick="showHistorique()">Historique</button>
             <button class="nav-tab" id="nav-new-flight" onclick="showNewFlight()">Nouveau vol</button>
+            <button class="nav-tab" id="nav-settings" onclick="showSettings()">Paramètres</button>
           </div>
           <div id="navbar-right">
             <div id="session-zone">
@@ -55,6 +56,7 @@
         <div id="burger-menu">
           <button class="nav-tab" id="burger-historique" onclick="showHistorique();closeBurger()">Historique</button>
           <button class="nav-tab" onclick="showNewFlight();closeBurger()">+ Nouveau vol</button>
+          <button class="nav-tab" onclick="showSettings();closeBurger()">Paramètres</button>
           <hr class="burger-sep">
           <div id="burger-session-zone">
             <div id="burger-si-label">En attente</div>
@@ -64,6 +66,35 @@
           </div>
           <hr class="burger-sep">
           <input type="text" id="burger-search" class="burger-search-input" placeholder="Rechercher…" oninput="syncBurgerSearch()">
+        </div>
+      </div>
+      <div id="settings-page" style="display:none">
+        <div id="st-header">
+          <div id="st-title">Paramètres</div>
+        </div>
+        <div id="st-content">
+          <div class="st-section">
+            <div class="st-section-title" onclick="toggleSection(this)"><span class="st-chevron">▾</span><span>Profil</span></div>
+            <div class="st-section-body">
+              <div class="st-btn-row">
+                <button class="btn-sm" onclick="exportJSON()">Exporter JSON</button>
+                <button class="btn-sm" onclick="importJSON()">Importer JSON</button>
+                <input type="file" id="file-input" accept=".json" style="display:none" onchange="loadFile(event)">
+              </div>
+              <label class="pf-checkbox-label">
+                <input type="checkbox" id="st-export-profile" onchange="onSettingChange()">
+                Inclure le profil dans l'export JSON
+              </label>
+              <label class="pf-checkbox-label">
+                <input type="checkbox" id="st-import-profile" onchange="onSettingChange()">
+                Remplacer mon profil lors d'un import JSON
+              </label>
+              <div class="edit-actions" style="margin-top:4px;">
+                <button class="btn-sm" onclick="saveSettings()">Sauvegarder</button>
+                <button class="btn-sm" onclick="cancelSettings()">Annuler</button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       <div id="new-flight-page" style="display:none">
@@ -120,12 +151,6 @@
         <div id="pf-content"></div>
       </div>
       <div id="main">
-        <div id="io-bar">
-          <button class="btn-sm" onclick="exportJSON()">Exporter JSON</button>
-          <button class="btn-sm" onclick="importJSON()">Importer JSON</button>
-          <input type="file" id="file-input" accept=".json" style="display:none" onchange="loadFile(event)">
-        </div>
-        <hr>
         <div id="log-header">
           <div id="log-title">Historique</div>
           <div id="session-count"></div>
@@ -144,6 +169,15 @@
           <button class="btn-sm"
             onclick="document.getElementById('steam-input-row').style.display='none'">Annuler</button>
         </div>
+      </div>
+    </div>
+  </div>
+  <div id="st-confirm-overlay" style="display:none">
+    <div id="st-confirm-modal">
+      <div id="st-confirm-msg"></div>
+      <div class="st-confirm-actions">
+        <button class="btn" onclick="confirmSettingsLeave(true)">Sauvegarder</button>
+        <button class="btn-sm" onclick="confirmSettingsLeave(false)">Ne pas sauvegarder</button>
       </div>
     </div>
   </div>
