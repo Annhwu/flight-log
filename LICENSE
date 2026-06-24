@@ -1,0 +1,124 @@
+Business Source License 1.1
+
+Licensor:             Léo PIVOTEAU--DUARTE (Annhwu)
+Licensed Work:        DCS Flight Log
+                      The Licensed Work is (c) 2025 Léo PIVOTEAU--DUARTE (Annhwu)
+Additional Use Grant: You may use the Licensed Work for personal, non-commercial
+                      purposes only, free of charge.
+Change Date:          2030-01-01
+Change License:       Custom Personal License (see below)
+
+For commercial licensing inquiries, please contact the Licensor.
+
+---
+
+BUSINESS SOURCE LICENSE 1.1 TERMS
+
+The Licensor hereby grants you the right to copy, modify, create derivative
+works, redistribute, and make non-production use of the Licensed Work. The
+Licensor may make an Additional Use Grant, above, permitting limited
+production use.
+
+Effective on the Change Date, or the fourth anniversary of the first publicly
+available distribution of a specific version of the Licensed Work under this
+License, whichever comes first, the Licensor hereby grants you rights under
+the terms of the Change License, and the rights granted in the paragraph
+above terminate.
+
+If your use of the Licensed Work does not comply with the requirements
+currently in effect as described in this file, you must purchase a commercial
+license from the Licensor, its affiliated entities, or authorized resellers,
+or you must refrain from using the Licensed Work.
+
+All copies of the original and modified Licensed Work, and derivative works
+of the Licensed Work, are subject to this License. This License applies
+separately for each version of the Licensed Work, and the Change Date may
+vary for each version of the Licensed Work released by the Licensor.
+
+You must conspicuously display this License on each original or modified copy
+of the Licensed Work. If you receive the Licensed Work in original or modified
+form from a third party, the terms and conditions set forth in this License
+apply to your use of that work.
+
+Any use of the Licensed Work in violation of this License will automatically
+terminate your rights under this License for the current and all other
+versions of the Licensed Work.
+
+TO THE EXTENT PERMITTED BY APPLICABLE LAW, THE LICENSED WORK IS PROVIDED ON
+AN "AS IS" BASIS. LICENSOR HEREBY DISCLAIMS ALL WARRANTIES AND CONDITIONS,
+EXPRESS OR IMPLIED, INCLUDING (WITHOUT LIMITATION) WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, AND
+TITLE.
+
+---
+
+CHANGE LICENSE — Effective from 2030-01-01
+
+Copyright (c) 2025 Léo PIVOTEAU--DUARTE (Annhwu)
+All rights reserved.
+
+TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+
+1. DEFINITIONS
+
+   "Software" refers to DCS Flight Log and all associated source code,
+   documentation, assets, and files contained in this repository.
+
+   "Author" refers to Léo PIVOTEAU--DUARTE (Annhwu), the original creator
+   and sole copyright holder of the Software.
+
+   "Personal Use" means use by an individual solely for private, non-commercial
+   purposes on their own device, with no revenue generated directly or
+   indirectly from such use.
+
+   "Commercial Use" means any use of the Software intended for or resulting in
+   commercial advantage or monetary compensation, including but not limited to:
+   selling the Software, offering it as a service (SaaS, web, mobile), or
+   integrating it into a commercial product.
+
+2. GRANT OF RIGHTS
+
+   Subject to the terms of this License, the Author grants you a limited,
+   non-exclusive, non-transferable, royalty-free right to:
+
+   a) View and study the source code of the Software.
+   b) Use the Software for Personal Use only.
+   c) Fork and modify the Software for Personal Use only, provided that any
+      modified version is not publicly distributed or commercially exploited.
+
+3. RESTRICTIONS
+
+   You may NOT, without prior written permission from the Author:
+
+   a) Use the Software or any derivative work for Commercial Use.
+   b) Distribute, sublicense, or sell copies of the Software or any derivative.
+   c) Deploy the Software as a web application, mobile application, or any
+      network-accessible service.
+   d) Remove or alter any copyright notices, author credits, or this License.
+
+4. FUTURE VERSIONS
+
+   The Author reserves the right to release future versions of the Software
+   under different license terms, including commercial licenses. This License
+   applies solely to the version of the Software with which it is distributed.
+
+5. CONTRIBUTIONS
+
+   Any contribution submitted to this repository by a third party is considered
+   a donation of rights to the Author. The Author retains full copyright over
+   all contributions and may use them under any license, including commercial
+   ones, without restriction or compensation to the contributor.
+
+6. DISCLAIMER OF WARRANTIES
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS
+   FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. IN NO EVENT SHALL THE AUTHOR
+   BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING FROM THE USE
+   OR INABILITY TO USE THE SOFTWARE.
+
+7. GOVERNING LAW
+
+   This License shall be governed by and construed in accordance with the laws
+   of France. Any disputes arising under this License shall be subject to the
+   exclusive jurisdiction of the courts of France.
