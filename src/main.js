@@ -66,6 +66,7 @@ let elapsedInterval = null;
 let pendingSession = null;
 let profile = { name: '', modules: [] };
 let settingsDirty = false;
+let profileEditing = false;
 // ─── Utilitaires ───────────────────────────────────────────────────────────
 function pad(n) { return String(n).padStart(2, '0'); }
 function escapeHtml(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
@@ -481,6 +482,8 @@ function hideProfile() {
     showHistorique();
 }
 function showHistorique() {
+    if (checkProfileEditing(() => showHistorique()))
+        return;
     if (checkSettingsDirty(() => showHistorique()))
         return;
     hidAllPages();
@@ -490,6 +493,8 @@ function showHistorique() {
     closeBurger();
 }
 function showSettings() {
+    if (checkProfileEditing(() => showSettings()))
+        return;
     if (checkSettingsDirty(() => showSettings()))
         return;
     hidAllPages();
@@ -527,6 +532,39 @@ function getSettingsChanges() {
         changes.push(`"Remplacer mon profil lors d'un import JSON" → ${imp ? 'activé' : 'désactivé'}`);
     return changes;
 }
+function getProfileChanges() {
+    const changes = [];
+    const nameEl = document.getElementById('pf-name-input');
+    if (nameEl && nameEl.value.trim() !== profile.name)
+        changes.push(`Nom : "${profile.name || '—'}" → "${nameEl.value.trim() || '—'}"`);
+    const selected = new Set(Array.from(document.querySelectorAll('.pf-module-toggle.selected')).map(el => el.dataset.module).filter(Boolean));
+    const saved = new Set(profile.modules);
+    const added = [...selected].filter(m => !saved.has(m));
+    const removed = [...saved].filter(m => !selected.has(m));
+    if (added.length)
+        changes.push(`Ajouté : ${added.join(', ')}`);
+    if (removed.length)
+        changes.push(`Retiré : ${removed.join(', ')}`);
+    return changes;
+}
+function checkProfileEditing(_nav) {
+    if (!profileEditing || document.getElementById('profile-page').style.display === 'none')
+        return false;
+    const changes = getProfileChanges();
+    const msg = document.getElementById('pf-confirm-msg');
+    msg.innerHTML = changes.length
+        ? `Vous avez modifié :<br><b>${changes.join('<br>')}</b><br><br>Voulez-vous sauvegarder ces changements ?`
+        : `Vous avez des modifications non sauvegardées.<br>Voulez-vous les sauvegarder ?`;
+    document.getElementById('pf-confirm-overlay').style.display = 'flex';
+    return true;
+}
+function confirmProfileLeave(save) {
+    document.getElementById('pf-confirm-overlay').style.display = 'none';
+    if (save)
+        saveProfile();
+    else
+        cancelEditProfile();
+}
 function checkSettingsDirty(_nav) {
     if (!settingsDirty || document.getElementById('settings-page').style.display === 'none')
         return false;
@@ -549,6 +587,8 @@ function toggleSection(titleEl) {
     titleEl.closest('.st-section')?.classList.toggle('collapsed');
 }
 function showNewFlight() {
+    if (checkProfileEditing(() => showNewFlight()))
+        return;
     if (checkSettingsDirty(() => showNewFlight()))
         return;
     hidAllPages();
@@ -743,6 +783,7 @@ function renderProfileView() {
     </div>`;
 }
 function editProfile() {
+    profileEditing = true;
     const content = document.getElementById('pf-content');
     const grid = DCS_MODULES.map(mod => {
         const sel = profile.modules.includes(mod.name);
@@ -759,13 +800,14 @@ function editProfile() {
         <div class="pf-modules-grid">${grid}</div>
       </div>
       <div class="pf-edit-actions">
-        <button class="btn" onclick="saveProfile()">Sauvegarder</button>
+        <button class="btn-sm" onclick="saveProfile()">Sauvegarder</button>
         <button class="btn-sm" onclick="cancelEditProfile()">Annuler</button>
       </div>
     </div>`;
 }
-function cancelEditProfile() { renderProfileView(); }
+function cancelEditProfile() { profileEditing = false; renderProfileView(); }
 async function saveProfile() {
+    profileEditing = false;
     const name = document.getElementById('pf-name-input').value.trim();
     const modules = Array.from(document.querySelectorAll('.pf-module-toggle.selected'))
         .map(el => el.dataset.module).filter(Boolean);
@@ -803,6 +845,7 @@ window.saveSettings = saveSettings;
 window.cancelSettings = cancelSettings;
 window.onSettingChange = onSettingChange;
 window.confirmSettingsLeave = confirmSettingsLeave;
+window.confirmProfileLeave = confirmProfileLeave;
 window.toggleSection = toggleSection;
 window.toggleBurger = toggleBurger;
 window.toggleMissionPanel = toggleMissionPanel;
