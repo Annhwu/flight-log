@@ -153,6 +153,7 @@ let profile: Profile = { name: '', modules: [] };
 let settingsDirty = false;
 let profileEditing = false;
 let pendingAvatarChange: string | null | undefined = undefined;
+let editingCardId: number | null = null;
 
 // ─── Utilitaires ───────────────────────────────────────────────────────────
 
@@ -210,11 +211,35 @@ async function loadFromFile(): Promise<void> {
   }
 }
 
+let _lastBtnRect: DOMRect | null = null;
+document.addEventListener('click', (e) => {
+  const btn = (e.target as HTMLElement).closest('button, label[class*="btn"]') as HTMLElement | null;
+  if (btn) _lastBtnRect = btn.getBoundingClientRect();
+}, true);
+
 function showSaveIndicator(): void {
-  const el = document.getElementById('save-indicator');
+  const el = document.getElementById('save-indicator') as HTMLElement | null;
   if (!el) return;
+  el.classList.remove('show');
+  void el.offsetWidth;
+  const w = el.offsetWidth || 160, h = el.offsetHeight || 44;
+  if (_lastBtnRect) {
+    const r = _lastBtnRect;
+    let x = r.right + 8;
+    let y = r.top + r.height / 2 - h / 2;
+    if (x + w > window.innerWidth - 8) x = r.left - w - 8;
+    x = Math.max(x, 8);
+    y = Math.min(Math.max(y, 8), window.innerHeight - h - 8);
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+  } else {
+    el.style.right = '16px';
+    el.style.bottom = '16px';
+    el.style.left = 'auto';
+    el.style.top = 'auto';
+  }
   el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 1500);
+  setTimeout(() => el.classList.remove('show'), 900);
 }
 
 // ─── Export / Import ────────────────────────────────────────────────────────
@@ -522,15 +547,21 @@ function toggleCard(id: number): void {
 }
 
 function toggleEdit(id: number): void {
+  if (editingCardId !== null && editingCardId !== id) {
+    checkCardEditing(() => toggleEdit(id));
+    return;
+  }
   const row  = document.getElementById('edit-' + id) as HTMLElement;
   const card = document.getElementById('sc-' + id) as HTMLElement;
   if (row.style.display === 'flex') {
     row.style.display = 'none';
     card.classList.remove('editing');
+    editingCardId = null;
   } else {
     card.classList.add('expanded', 'editing');
     (document.getElementById('details-' + id) as HTMLElement).style.display = 'none';
     row.style.display = 'flex';
+    editingCardId = id;
     setTimeout(() => {
       const ta = document.getElementById('enotes-' + id) as HTMLTextAreaElement;
       if (ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
@@ -538,10 +569,8 @@ function toggleEdit(id: number): void {
   }
 }
 function cancelEdit(id: number): void {
-  (document.getElementById('edit-' + id) as HTMLElement).style.display = 'none';
-  const card = document.getElementById('sc-' + id) as HTMLElement;
-  card.classList.remove('editing');
-  (document.getElementById('details-' + id) as HTMLElement).style.display = 'block';
+  if (editingCardId === id) editingCardId = null;
+  renderSessions();
 }
 async function saveEdit(id: number): Promise<void> {
   const res = calcEditDur(id); if (!res) return;
@@ -555,11 +584,57 @@ async function saveEdit(id: number): Promise<void> {
   sessions[idx].aircraft = ac.length ? ac : undefined;
   const mt = Array.from(document.querySelectorAll<HTMLElement>(`#emission-tags-${id} [data-mission]`)).map(el => el.dataset.mission!).filter(Boolean);
   sessions[idx].missionTypes = mt.length ? mt : undefined;
+  if (editingCardId === id) editingCardId = null;
   renderSessions(); updateTotal(); await saveToFile();
 }
 async function deleteSession(id: number): Promise<void> {
   sessions = sessions.filter(s => s.id !== id);
   renderSessions(); updateTotal(); await saveToFile();
+}
+
+function getCardChanges(id: number): string[] {
+  const session = sessions.find(s => s.id === id);
+  if (!session) return [];
+  const changes: string[] = [];
+  const name = (document.getElementById('ename-' + id) as HTMLInputElement)?.value.trim() || undefined;
+  if (name !== (session.name || undefined)) changes.push(`Nom : "${session.name || '—'}" → "${name || '—'}"`);
+  const notes = (document.getElementById('enotes-' + id) as HTMLTextAreaElement)?.value.trim() || undefined;
+  if (notes !== (session.notes || undefined)) changes.push('Commentaire modifié');
+  const ac = Array.from(document.querySelectorAll<HTMLElement>(`#eaircraft-${id} .aircraft-toggle.selected`)).map(el => el.dataset.aircraft!).filter(Boolean);
+  const savedAc = session.aircraft || [];
+  const acAdd = ac.filter(a => !savedAc.includes(a)), acRem = savedAc.filter(a => !ac.includes(a));
+  if (acAdd.length) changes.push(`Appareil ajouté : ${acAdd.join(', ')}`);
+  if (acRem.length) changes.push(`Appareil retiré : ${acRem.join(', ')}`);
+  const mt = Array.from(document.querySelectorAll<HTMLElement>(`#emission-tags-${id} [data-mission]`)).map(el => el.dataset.mission!).filter(Boolean);
+  const savedMt = session.missionTypes || [];
+  const mtAdd = mt.filter(t => !savedMt.includes(t)), mtRem = savedMt.filter(t => !mt.includes(t));
+  if (mtAdd.length) changes.push(`Mission ajoutée : ${mtAdd.join(', ')}`);
+  if (mtRem.length) changes.push(`Mission retirée : ${mtRem.join(', ')}`);
+  const res = calcEditDur(id);
+  if (res && (Math.abs(res.start.getTime() - session.startTs) > 59000 || Math.abs(res.end.getTime() - session.endTs) > 59000)) changes.push('Horaires modifiés');
+  return changes;
+}
+
+function checkCardEditing(_nav: () => void): boolean {
+  if (editingCardId === null) return false;
+  const row = document.getElementById('edit-' + editingCardId);
+  if (!row || row.style.display === 'none') { editingCardId = null; return false; }
+  const changes = getCardChanges(editingCardId);
+  if (!changes.length) { cancelEdit(editingCardId); return false; }
+  const num = String(editingCardId).padStart(2, '0');
+  const msg = document.getElementById('card-confirm-msg')!;
+  msg.innerHTML = `Vous modifiez le <b>Vol #${num}</b> :<br><b>${changes.join('<br>')}</b><br><br>Voulez-vous sauvegarder ces changements ?`;
+  (document.getElementById('card-confirm-overlay') as HTMLElement).style.display = 'flex';
+  return true;
+}
+
+function confirmCardLeave(save: boolean | null): void {
+  (document.getElementById('card-confirm-overlay') as HTMLElement).style.display = 'none';
+  if (save === null) return;
+  const id = editingCardId;
+  if (id === null) return;
+  editingCardId = null;
+  if (save) saveEdit(id); else cancelEdit(id);
 }
 
 // ─── Profil ────────────────────────────────────────────────────────────────
@@ -583,6 +658,8 @@ function hidAllPages(): void {
 }
 
 function showProfile(): void {
+  if (checkCardEditing(() => showProfile())) return;
+  if (checkNewFlight(() => showProfile())) return;
   if (checkSettingsDirty(() => showProfile())) return;
   hidAllPages();
   (document.getElementById('profile-page') as HTMLElement).style.display = 'flex';
@@ -595,6 +672,7 @@ function hideProfile(): void {
 }
 
 function showHistorique(): void {
+  if (checkNewFlight(() => showHistorique())) return;
   if (checkProfileEditing(() => showHistorique())) return;
   if (checkSettingsDirty(() => showHistorique())) return;
   hidAllPages();
@@ -605,6 +683,8 @@ function showHistorique(): void {
 }
 
 function showSettings(): void {
+  if (checkCardEditing(() => showSettings())) return;
+  if (checkNewFlight(() => showSettings())) return;
   if (checkProfileEditing(() => showSettings())) return;
   if (checkSettingsDirty(() => showSettings())) return;
   hidAllPages();
@@ -659,17 +739,57 @@ function getProfileChanges(): string[] {
 function checkProfileEditing(_nav: () => void): boolean {
   if (!profileEditing || (document.getElementById('profile-page') as HTMLElement).style.display === 'none') return false;
   const changes = getProfileChanges();
+  if (!changes.length) { cancelEditProfile(); return false; }
   const msg = document.getElementById('pf-confirm-msg')!;
-  msg.innerHTML = changes.length
-    ? `Vous avez modifié :<br><b>${changes.join('<br>')}</b><br><br>Voulez-vous sauvegarder ces changements ?`
-    : `Vous avez des modifications non sauvegardées.<br>Voulez-vous les sauvegarder ?`;
+  msg.innerHTML = `Vous avez modifié :<br><b>${changes.join('<br>')}</b><br><br>Voulez-vous sauvegarder ces changements ?`;
   (document.getElementById('pf-confirm-overlay') as HTMLElement).style.display = 'flex';
   return true;
 }
 
-function confirmProfileLeave(save: boolean): void {
+function confirmProfileLeave(save: boolean | null): void {
   (document.getElementById('pf-confirm-overlay') as HTMLElement).style.display = 'none';
+  if (save === null) return;
   if (save) saveProfile(); else cancelEditProfile();
+}
+
+function isNewFlightDirty(): boolean {
+  const name  = (document.getElementById('nf-name')  as HTMLInputElement)?.value.trim();
+  const notes = (document.getElementById('nf-notes') as HTMLTextAreaElement)?.value.trim();
+  const ac = document.querySelectorAll('#nf-aircraft-picker .aircraft-toggle.selected').length;
+  const mt = document.querySelectorAll('#emission-tags--1 [data-mission]').length;
+  return !!(name || notes || ac || mt);
+}
+
+function getNewFlightChanges(): string[] {
+  const changes: string[] = [];
+  const name = (document.getElementById('nf-name') as HTMLInputElement)?.value.trim();
+  if (name) changes.push(`Nom : "${name}"`);
+  const mt = Array.from(document.querySelectorAll<HTMLElement>('#emission-tags--1 [data-mission]')).map(el => el.dataset.mission!).filter(Boolean);
+  if (mt.length) changes.push(`Type(s) de mission : ${mt.join(', ')}`);
+  const ac = Array.from(document.querySelectorAll<HTMLElement>('#nf-aircraft-picker .aircraft-toggle.selected')).map(el => el.dataset.aircraft!).filter(Boolean);
+  if (ac.length) changes.push(`Appareil(s) : ${ac.join(', ')}`);
+  const notes = (document.getElementById('nf-notes') as HTMLTextAreaElement)?.value.trim();
+  if (notes) changes.push('Commentaire renseigné');
+  return changes;
+}
+
+function checkNewFlight(_nav: () => void): boolean {
+  const page = document.getElementById('new-flight-page') as HTMLElement;
+  if (!page || page.style.display === 'none') return false;
+  if (!isNewFlightDirty()) return false;
+  const changes = getNewFlightChanges();
+  const msg = document.getElementById('nf-confirm-msg')!;
+  msg.innerHTML = changes.length
+    ? `Vous avez commencé à créer un vol :<br><b>${changes.join('<br>')}</b><br><br>Voulez-vous sauvegarder ce vol ?`
+    : `Vous avez des modifications non sauvegardées.<br>Voulez-vous sauvegarder ce vol ?`;
+  (document.getElementById('nf-confirm-overlay') as HTMLElement).style.display = 'flex';
+  return true;
+}
+
+function confirmNewFlightLeave(save: boolean | null): void {
+  (document.getElementById('nf-confirm-overlay') as HTMLElement).style.display = 'none';
+  if (save === null) return;
+  if (save) saveNewFlight();
 }
 
 function checkSettingsDirty(_nav: () => void): boolean {
@@ -683,8 +803,9 @@ function checkSettingsDirty(_nav: () => void): boolean {
   return true;
 }
 
-function confirmSettingsLeave(save: boolean): void {
+function confirmSettingsLeave(save: boolean | null): void {
   (document.getElementById('st-confirm-overlay') as HTMLElement).style.display = 'none';
+  if (save === null) return;
   if (save) saveSettings(); else cancelSettings();
 }
 
@@ -693,6 +814,7 @@ function toggleSection(titleEl: HTMLElement): void {
 }
 
 function showNewFlight(): void {
+  if (checkCardEditing(() => showNewFlight())) return;
   if (checkProfileEditing(() => showNewFlight())) return;
   if (checkSettingsDirty(() => showNewFlight())) return;
   hidAllPages();
@@ -967,6 +1089,9 @@ function uploadAvatar(event: Event): void {
       ctx.drawImage(img, ox, oy, s, s, 0, 0, SIZE, SIZE);
       const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
       pendingAvatarChange = dataUrl;
+      profile = { ...profile, avatar: dataUrl };
+      updateProfileBtn();
+      saveToFile();
       const preview = document.getElementById('pf-avatar-preview');
       if (preview) preview.innerHTML = `<img class="pf-avatar-img" src="${dataUrl}" alt="avatar" width="72" height="72">`;
       const wrap = document.getElementById('pf-avatar-remove-wrap');
@@ -1035,6 +1160,8 @@ window.showProfile = showProfile;
 (window as any).cancelSettings = cancelSettings;
 (window as any).onSettingChange = onSettingChange;
 (window as any).confirmSettingsLeave = confirmSettingsLeave;
+(window as any).confirmCardLeave = confirmCardLeave;
+(window as any).confirmNewFlightLeave = confirmNewFlightLeave;
 (window as any).confirmProfileLeave = confirmProfileLeave;
 (window as any).toggleSection = toggleSection;
 (window as any).toggleBurger = toggleBurger;

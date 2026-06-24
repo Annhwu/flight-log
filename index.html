@@ -172,20 +172,42 @@
       </div>
     </div>
   </div>
+  <div id="card-confirm-overlay" style="display:none">
+    <div class="confirm-modal">
+      <div class="confirm-msg" id="card-confirm-msg"></div>
+      <div class="st-confirm-actions">
+        <button class="btn-sm" onclick="confirmCardLeave(true)">Sauvegarder</button>
+        <button class="btn-sm confirm-stay-btn" onclick="confirmCardLeave(null)">Modifier</button>
+        <button class="btn-sm" onclick="confirmCardLeave(false)">Ne pas sauvegarder</button>
+      </div>
+    </div>
+  </div>
+  <div id="nf-confirm-overlay" style="display:none">
+    <div class="confirm-modal">
+      <div class="confirm-msg" id="nf-confirm-msg"></div>
+      <div class="st-confirm-actions">
+        <button class="btn-sm" onclick="confirmNewFlightLeave(true)">Sauvegarder</button>
+        <button class="btn-sm confirm-stay-btn" onclick="confirmNewFlightLeave(null)">Modifier</button>
+        <button class="btn-sm" onclick="confirmNewFlightLeave(false)">Ne pas sauvegarder</button>
+      </div>
+    </div>
+  </div>
   <div id="pf-confirm-overlay" style="display:none">
-    <div id="st-confirm-modal">
-      <div id="pf-confirm-msg"></div>
+    <div class="confirm-modal">
+      <div class="confirm-msg" id="pf-confirm-msg"></div>
       <div class="st-confirm-actions">
         <button class="btn-sm" onclick="confirmProfileLeave(true)">Sauvegarder</button>
+        <button class="btn-sm confirm-stay-btn" onclick="confirmProfileLeave(null)">Modifier</button>
         <button class="btn-sm" onclick="confirmProfileLeave(false)">Ne pas sauvegarder</button>
       </div>
     </div>
   </div>
   <div id="st-confirm-overlay" style="display:none">
-    <div id="st-confirm-modal">
-      <div id="st-confirm-msg"></div>
+    <div class="confirm-modal">
+      <div class="confirm-msg" id="st-confirm-msg"></div>
       <div class="st-confirm-actions">
         <button class="btn-sm" onclick="confirmSettingsLeave(true)">Sauvegarder</button>
+        <button class="btn-sm confirm-stay-btn" onclick="confirmSettingsLeave(null)">Modifier</button>
         <button class="btn-sm" onclick="confirmSettingsLeave(false)">Ne pas sauvegarder</button>
       </div>
     </div>
