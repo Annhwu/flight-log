@@ -168,26 +168,48 @@ function secsToHMS(s: number): string { const h = Math.floor(s / 3600), mm = Mat
 function durLabel(min: number): string { const d = Math.floor(min / 1440), h = Math.floor((min % 1440) / 60), m = Math.round(min % 60); return (d > 0 ? d + 'j ' : '') + pad(h) + 'h ' + pad(m) + 'm'; }
 
 function generateBoringAvatar(seed: string, size = 80): string {
-  const PALETTE = ['#0A0310','#49007E','#FF005B','#FF7D10','#FFB238'];
-  function djb2(s: string): number {
-    let h = 5381;
-    for (let i = 0; i < s.length; i++) h = ((h << 5) + h) ^ s.charCodeAt(i);
+  const PALETTE = ['#92A1C6', '#146A7C', '#F0AB3D', '#C271B4', '#C20D90'];
+  const S = 36;
+
+  function hash(str: string): number {
+    let h = 0;
+    for (let i = 0; i < str.length; i++) { h = ((h << 5) - h) + str.charCodeAt(i); h |= 0; }
     return Math.abs(h);
   }
-  function pick(n: number, salt: number): string { return PALETTE[Math.abs(n + salt * 7) % PALETTE.length]; }
-  function unit(n: number, range: number, salt: number): number { return Math.abs(n + salt * 13) % range; }
-  const n = djb2(seed || 'pilot');
-  const bg = pick(n, 0), face = pick(n, 1), accent = pick(n, 2), detail = pick(n, 3);
-  const s = size;
-  const fX = s * 0.27, fY = s * 0.22, fW = s * 0.46, fH = s * 0.54, fRx = s * 0.12;
-  const eyeY = fY + fH * 0.36, eyeSz = s * 0.10, eyeRx = eyeSz * 0.3;
-  const spread = unit(n, 5, 5) - 2;
-  const e1X = fX + fW * 0.18 + spread, e2X = fX + fW * 0.62 - spread;
-  const mY = fY + fH * 0.68, mW = fW * (0.35 + unit(n, 3, 6) * 0.07), mH = s * 0.08;
-  const mX = fX + (fW - mW) / 2;
-  const rot = unit(n, 18, 3) - 9;
-  const cx = s / 2, cy = s / 2;
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${s} ${s}" width="${s}" height="${s}"><rect width="${s}" height="${s}" fill="${bg}"/><g transform="rotate(${rot} ${cx} ${cy})"><rect x="${fX}" y="${fY}" width="${fW}" height="${fH}" rx="${fRx}" fill="${face}"/><rect x="${e1X}" y="${eyeY}" width="${eyeSz}" height="${eyeSz}" rx="${eyeRx}" fill="${accent}"/><rect x="${e2X}" y="${eyeY}" width="${eyeSz}" height="${eyeSz}" rx="${eyeRx}" fill="${accent}"/><rect x="${mX}" y="${mY}" width="${mW}" height="${mH}" rx="${mH/2}" fill="${detail}"/></g></svg>`;
+  function unit(n: number, range: number, idx: number): number {
+    const v = n % (idx * range);
+    return v > range ? v % range : v;
+  }
+  function color(n: number): string { return PALETTE[n % PALETTE.length]; }
+  function contrast(hex: string): string {
+    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return (0.299*r + 0.587*g + 0.114*b) / 255 > 0.5 ? '#000000' : '#ffffff';
+  }
+
+  const n = hash(seed || 'pilot');
+  const bgColor   = color(n + 13);
+  const wrapColor = color(n);
+  const faceColor = contrast(wrapColor);
+  const preX = unit(n, 10, 1), preY = unit(n, 10, 2);
+  const tx = preX < 5 ? preX + S * 0.1 : preX;
+  const ty = preY < 5 ? preY + S * 0.1 : preY;
+  const rot   = unit(n, 360, 3);
+  const scale = 1 + unit(n, Math.floor(S / 12), 4) / 10;
+  const isCircle   = unit(n, 2, 14);
+  const isMouthOpen = unit(n, 2, 13);
+  const eyeSpread  = unit(n, 10, 12);
+  const faceRot = unit(n, 10, 6);
+  const ftx = tx > S / 6 ? tx / 2 : unit(n, 8, 7);
+  const fty = ty > S / 6 ? ty / 2 : unit(n, 7, 8);
+  const rx = isCircle ? S / 2 : S / 6;
+  const mid = S / 2;
+  const id = 'm' + (n % 99999);
+
+  const mouth = isMouthOpen
+    ? `<path d="M15 ${19 + eyeSpread}c2 1 4 1 6 0" stroke="${faceColor}" fill="none" stroke-linecap="round"/>`
+    : `<path d="M13,${19 + eyeSpread} a1,0.75 0 0,0 10,0" fill="${faceColor}"/>`;
+
+  return `<svg viewBox="0 0 ${S} ${S}" xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}"><mask id="${id}"><rect width="${S}" height="${S}" rx="${S*2}" fill="#fff"/></mask><g mask="url(#${id})"><rect width="${S}" height="${S}" fill="${bgColor}"/><rect x="0" y="0" width="${S}" height="${S}" transform="translate(${tx} ${ty}) rotate(${rot} ${mid} ${mid}) scale(${scale})" fill="${wrapColor}" rx="${rx}"/><g transform="translate(${ftx} ${fty}) rotate(${faceRot} ${mid} ${mid})">${mouth}<rect x="${14-eyeSpread}" y="14" width="1.5" height="2" rx="1" fill="${faceColor}"/><rect x="${20+eyeSpread}" y="14" width="1.5" height="2" rx="1" fill="${faceColor}"/></g></g></svg>`;
 }
 
 // ─── Sauvegarde automatique via Tauri ──────────────────────────────────────
