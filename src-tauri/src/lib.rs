@@ -7,7 +7,7 @@ use tauri::Manager;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![save_file, save_data, load_data])
+        .invoke_handler(tauri::generate_handler![save_file, save_data, load_data, read_installer_lang])
         .run(tauri::generate_context!())
         .expect("Erreur démarrage");
 }
@@ -31,6 +31,14 @@ fn save_data(app: tauri::AppHandle, content: String) -> Result<(), String> {
         fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
     fs::write(&path, content).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn read_installer_lang(app: tauri::AppHandle) -> String {
+    let path = app.path().app_data_dir()
+        .map(|d| d.join("lang.ini"))
+        .unwrap_or_default();
+    fs::read_to_string(&path).unwrap_or_default()
 }
 
 #[tauri::command]

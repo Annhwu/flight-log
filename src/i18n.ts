@@ -7,11 +7,12 @@ const LOCALE_MAP: Record<string, string> = { fr: 'fr-FR', en: 'en-GB', ru: 'ru-R
 
 async function getInstallerLang(): Promise<string | null> {
   try {
-    const { readTextFile, BaseDirectory } = await import('@tauri-apps/plugin-fs');
-    const ini = await readTextFile('com.flight.log/lang.ini', { baseDir: BaseDirectory.AppData });
+    const internals = (window as unknown as { __TAURI_INTERNALS__?: { invoke: <T>(cmd: string) => Promise<T> } }).__TAURI_INTERNALS__;
+    if (!internals) return null;
+    const ini = await internals.invoke<string>('read_installer_lang');
     const match = ini.match(/^lang\s*=\s*(\w+)/m);
     if (match) return match[1];
-  } catch { /* file doesn't exist yet */ }
+  } catch { /* pas de lang.ini */ }
   return null;
 }
 
