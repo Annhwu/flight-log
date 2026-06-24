@@ -27,6 +27,8 @@ interface DCSModule {
 interface Profile {
   name: string;
   modules: string[];
+  exportProfile?: boolean;
+  importProfile?: boolean;
 }
 
 interface AppData {
@@ -147,6 +149,8 @@ let activeStart: Date | null = null;
 let elapsedInterval: number | null = null;
 let pendingSession: Session | null = null;
 let profile: Profile = { name: '', modules: [] };
+let settingsDirty = false;
+let pendingNav: (() => void) | null = null;
 
 // ─── Utilitaires ───────────────────────────────────────────────────────────
 
@@ -191,7 +195,7 @@ function showSaveIndicator(): void {
 // ─── Export / Import ────────────────────────────────────────────────────────
 
 async function exportJSON(): Promise<void> {
-  const data: AppData = { steamMinutes, sessions };
+  const data: AppData = { steamMinutes, sessions, ...(profile.exportProfile ? { profile } : {}) };
   const json = JSON.stringify(data, null, 2);
   const options: DialogSaveOptions = {
     defaultPath: 'export_dcs_flight_log.json',
@@ -220,6 +224,10 @@ function loadFile(event: Event): void {
       const data: AppData = JSON.parse((e.target as FileReader).result as string);
       steamMinutes = data.steamMinutes ?? 0;
       sessions = data.sessions ?? [];
+      if (data.profile && profile.importProfile) {
+        profile = { ...data.profile, importProfile: profile.importProfile, exportProfile: profile.exportProfile };
+        updateProfileBtn();
+      }
       await saveToFile();
       updateSteamDisplay();
       updateTotal();
@@ -533,41 +541,100 @@ function updateProfileBtn(): void {
   if (btn) btn.textContent = profile.name ? profile.name.charAt(0).toUpperCase() : '?';
 }
 
-function showProfile(): void {
-  (document.getElementById('main')  as HTMLElement).style.display = 'none';
-  (document.getElementById('profile-page') as HTMLElement).style.display = 'flex';
+function hidAllPages(): void {
+  (document.getElementById('main')          as HTMLElement).style.display = 'none';
+  (document.getElementById('profile-page')  as HTMLElement).style.display = 'none';
   (document.getElementById('new-flight-page') as HTMLElement).style.display = 'none';
-  document.getElementById('nav-historique')?.classList.remove('active');
-  document.getElementById('nav-new-flight')?.classList.remove('active');
+  (document.getElementById('settings-page') as HTMLElement).style.display = 'none';
+  ['nav-historique','nav-new-flight','nav-settings'].forEach(id => document.getElementById(id)?.classList.remove('active'));
+  document.getElementById('profile-btn')?.classList.remove('active');
+}
+
+function showProfile(): void {
+  if (checkSettingsDirty(() => showProfile())) return;
+  hidAllPages();
+  (document.getElementById('profile-page') as HTMLElement).style.display = 'flex';
   document.getElementById('profile-btn')?.classList.add('active');
   renderProfileView();
 }
 
 function hideProfile(): void {
-  (document.getElementById('main')  as HTMLElement).style.display = '';
-  (document.getElementById('profile-page') as HTMLElement).style.display = 'none';
-  document.getElementById('nav-historique')?.classList.add('active');
-  document.getElementById('profile-btn')?.classList.remove('active');
+  showHistorique();
 }
 
 function showHistorique(): void {
-  (document.getElementById('main')  as HTMLElement).style.display = '';
-  (document.getElementById('profile-page') as HTMLElement).style.display = 'none';
-  (document.getElementById('new-flight-page') as HTMLElement).style.display = 'none';
+  if (checkSettingsDirty(() => showHistorique())) return;
+  hidAllPages();
+  (document.getElementById('main') as HTMLElement).style.display = '';
   document.getElementById('nav-historique')?.classList.add('active');
-  document.getElementById('nav-new-flight')?.classList.remove('active');
   document.getElementById('burger-historique')?.classList.add('active');
-  document.getElementById('profile-btn')?.classList.remove('active');
   closeBurger();
 }
 
+function showSettings(): void {
+  if (checkSettingsDirty(() => showSettings())) return;
+  hidAllPages();
+  (document.getElementById('settings-page') as HTMLElement).style.display = 'flex';
+  document.getElementById('nav-settings')?.classList.add('active');
+  const expCb = document.getElementById('st-export-profile') as HTMLInputElement;
+  const impCb = document.getElementById('st-import-profile') as HTMLInputElement;
+  if (expCb) expCb.checked = !!profile.exportProfile;
+  if (impCb) impCb.checked = !!profile.importProfile;
+  settingsDirty = false;
+}
+
+function onSettingChange(): void {
+  settingsDirty = true;
+}
+
+function saveSettings(): void {
+  profile.exportProfile = (document.getElementById('st-export-profile') as HTMLInputElement).checked;
+  profile.importProfile = (document.getElementById('st-import-profile') as HTMLInputElement).checked;
+  settingsDirty = false;
+  saveToFile();
+}
+
+function cancelSettings(): void {
+  (document.getElementById('st-export-profile') as HTMLInputElement).checked = !!profile.exportProfile;
+  (document.getElementById('st-import-profile') as HTMLInputElement).checked = !!profile.importProfile;
+  settingsDirty = false;
+}
+
+function getSettingsChanges(): string[] {
+  const changes: string[] = [];
+  const exp = (document.getElementById('st-export-profile') as HTMLInputElement)?.checked;
+  const imp = (document.getElementById('st-import-profile') as HTMLInputElement)?.checked;
+  if (exp !== !!profile.exportProfile) changes.push(`"Inclure le profil dans l'export JSON" → ${exp ? 'activé' : 'désactivé'}`);
+  if (imp !== !!profile.importProfile) changes.push(`"Remplacer mon profil lors d'un import JSON" → ${imp ? 'activé' : 'désactivé'}`);
+  return changes;
+}
+
+function checkSettingsDirty(nav: () => void): boolean {
+  if (!settingsDirty || (document.getElementById('settings-page') as HTMLElement).style.display === 'none') return false;
+  const changes = getSettingsChanges();
+  const msg = document.getElementById('st-confirm-msg')!;
+  msg.innerHTML = changes.length
+    ? `Vous avez modifié :<br><b>${changes.join('<br>')}</b><br><br>Voulez-vous sauvegarder ces changements ?`
+    : `Vous avez des modifications non sauvegardées.<br>Voulez-vous les sauvegarder ?`;
+  (document.getElementById('st-confirm-overlay') as HTMLElement).style.display = 'flex';
+  return true;
+}
+
+function confirmSettingsLeave(save: boolean): void {
+  (document.getElementById('st-confirm-overlay') as HTMLElement).style.display = 'none';
+  if (save) saveSettings(); else cancelSettings();
+  pendingNav = null;
+}
+
+function toggleSection(titleEl: HTMLElement): void {
+  titleEl.closest('.st-section')?.classList.toggle('collapsed');
+}
+
 function showNewFlight(): void {
-  (document.getElementById('main')  as HTMLElement).style.display = 'none';
-  (document.getElementById('profile-page') as HTMLElement).style.display = 'none';
+  if (checkSettingsDirty(() => showNewFlight())) return;
+  hidAllPages();
   (document.getElementById('new-flight-page') as HTMLElement).style.display = 'flex';
-  document.getElementById('nav-historique')?.classList.remove('active');
   document.getElementById('nav-new-flight')?.classList.add('active');
-  document.getElementById('profile-btn')?.classList.remove('active');
   const today = fmtDateInput(new Date());
   (document.getElementById('nf-date1') as HTMLInputElement).value = today;
   (document.getElementById('nf-date2') as HTMLInputElement).value = today;
@@ -775,7 +842,7 @@ async function saveProfile(): Promise<void> {
   const name = (document.getElementById('pf-name-input') as HTMLInputElement).value.trim();
   const modules = Array.from(document.querySelectorAll<HTMLElement>('.pf-module-toggle.selected'))
     .map(el => el.dataset.module!).filter(Boolean);
-  profile = { name, modules };
+  profile = { ...profile, name, modules };
   updateProfileBtn();
   renderProfileView();
   renderSessions();
@@ -808,6 +875,12 @@ window.showProfile = showProfile;
 (window as any).showNewFlight = showNewFlight;
 (window as any).updateNewFlightResult = updateNewFlightResult;
 (window as any).saveNewFlight = saveNewFlight;
+(window as any).showSettings = showSettings;
+(window as any).saveSettings = saveSettings;
+(window as any).cancelSettings = cancelSettings;
+(window as any).onSettingChange = onSettingChange;
+(window as any).confirmSettingsLeave = confirmSettingsLeave;
+(window as any).toggleSection = toggleSection;
 (window as any).toggleBurger = toggleBurger;
 (window as any).toggleMissionPanel = toggleMissionPanel;
 (window as any).toggleMissionType = toggleMissionType;
