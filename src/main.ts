@@ -366,6 +366,10 @@ function openDebrief(): void {
   const num = sessions.length + 1;
   (document.getElementById('debrief-num') as HTMLElement).textContent = 'Vol #' + pad(num);
   (document.getElementById('debrief-dur') as HTMLElement).textContent = durLabel(pendingSession.durationMin);
+  const tStart = new Date(pendingSession.startTs);
+  const tEnd   = new Date(pendingSession.endTs);
+  const timesEl = document.getElementById('debrief-times');
+  if (timesEl) timesEl.textContent = fmtDate(tStart) + '  •  ' + pad(tStart.getHours()) + ':' + pad(tStart.getMinutes()) + ' → ' + pad(tEnd.getHours()) + ':' + pad(tEnd.getMinutes());
   (document.getElementById('debrief-name') as HTMLInputElement).value = '';
   (document.getElementById('debrief-notes') as HTMLTextAreaElement).value = '';
   const picker = document.getElementById('debrief-aircraft-picker');
@@ -396,6 +400,11 @@ async function skipDebrief(): Promise<void> {
   pendingSession = null;
   document.getElementById('debrief-overlay')!.classList.remove('open');
   renderSessions(); updateTotal(); await saveToFile();
+}
+
+function deleteDebrief(): void {
+  pendingSession = null;
+  document.getElementById('debrief-overlay')!.classList.remove('open');
 }
 
 function updateElapsed(): void {
@@ -1149,6 +1158,7 @@ window.updateEditResult = updateEditResult;
 window.toggleCard  = toggleCard;
 window.confirmDebrief = confirmDebrief;
 window.skipDebrief = skipDebrief;
+(window as any).deleteDebrief = deleteDebrief;
 window.filterSessions = renderSessions;
 window.showProfile = showProfile;
 (window as any).showHistorique = showHistorique;
