@@ -8,7 +8,7 @@
   "session_active": "Session en cours",
   "session_start": "▶ ON",
   "session_stop": "■ OFF",
-  "search_hint": "Rechercher par nom, #numéro ou description…",
+  "search_hint": "Rechercher un vol par un nom, #numéro ou description...",
   "search_placeholder": "Rechercher…",
   "history_title": "Historique",
   "history_empty": "Aucune session enregistrée",
@@ -59,7 +59,7 @@
   "profile_choose_image": "Choisir une image",
   "profile_image_hint": "512 × 512 px recommandé (carré)",
   "profile_delete_photo": "Supprimer la photo",
-  "profile_pilot_name": "Nom du pilote",
+  "profile_pilot_name": "Nom",
   "profile_module_search": "Rechercher un module...",
   "profile_modules": "Modules DCS possédés",
   "profile_modules_count": "Modules DCS possédés ({{count}})",
@@ -76,6 +76,9 @@
   "settings_save": "Sauvegarder",
   "settings_cancel": "Annuler",
   "settings_language": "Langue",
+  "settings_theme": "Thème",
+  "theme_light": "Clair",
+  "theme_dark": "Sombre",
   "debrief_name": "Nom",
   "debrief_name_ph": "Nom",
   "debrief_aircraft": "Appareil(s) volé(s)",
@@ -113,5 +116,8 @@
   "change_missions": "Type(s) de mission : {{list}}",
   "change_aircraft": "Appareil(s) : {{list}}",
   "error_invalid_json": "Fichier JSON invalide.",
-  "save_indicator": "✓ Sauvegardé"
+  "save_indicator": "✓ Sauvegardé",
+  "ctx_cut": "Couper",
+  "ctx_copy": "Copier",
+  "ctx_paste": "Coller"
 }

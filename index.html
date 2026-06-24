@@ -19,7 +19,7 @@
       <button id="tb-close" onclick="tbClose()">✕</button>
     </div>
   </div>
-  <div class="page">
+<div class="page">
     <div id="dcs-root">
       <div id="navbar">
         <div id="navbar-row1">
@@ -48,15 +48,15 @@
             </div>
             <div id="search-bar">
               <input type="text" id="search-input" placeholder=" " oninput="filterSessions()">
-              <span id="search-hint" data-i18n="search_hint">Rechercher un volpar nom, #numéro ou description…</span>
+              <span id="search-hint" data-i18n="search_hint">Rechercher un vol par nom, #numéro ou description…</span>
             </div>
           </div>
           <button id="burger-btn" onclick="toggleBurger()" aria-label="Menu">&#9776;</button>
         </div>
         <div id="burger-menu">
           <button class="nav-tab" id="burger-historique" onclick="showHistorique();closeBurger()" data-i18n="nav_history">Historique</button>
-          <button class="nav-tab" onclick="showNewFlight();closeBurger()" data-i18n="nav_new_flight">Nouveau vol</button>
-          <button class="nav-tab" onclick="showSettings();closeBurger()" data-i18n="nav_settings">Paramètres</button>
+          <button class="nav-tab" id="burger-new-flight" onclick="showNewFlight();closeBurger()" data-i18n="nav_new_flight">Nouveau vol</button>
+          <button class="nav-tab" id="burger-settings" onclick="showSettings();closeBurger()" data-i18n="nav_settings">Paramètres</button>
           <hr class="burger-sep">
           <div id="burger-session-zone">
             <div id="burger-si-label">En attente</div>
@@ -89,7 +89,7 @@
                 <input type="checkbox" id="st-import-profile" onchange="onSettingChange()">
                 <span data-i18n="settings_replace_profile">Remplacer mon profil lors d'un import JSON</span>
               </label>
-              <div class="edit-actions" style="margin-top:4px;">
+              <div class="edit-actions" id="st-action-btns" style="margin-top:4px;display:none;">
                 <button class="btn-sm" onclick="saveSettings()" data-i18n="settings_save">Sauvegarder</button>
                 <button class="btn-sm btn-cancel" onclick="cancelSettings()" data-i18n="settings_cancel">Annuler</button>
               </div>
@@ -102,6 +102,21 @@
                 <button class="lang-btn" data-lang="fr" onclick="setLanguage('fr')">FR</button>
                 <button class="lang-btn" data-lang="en" onclick="setLanguage('en')">EN</button>
                 <button class="lang-btn" data-lang="ru" onclick="setLanguage('ru')">RU</button>
+              </div>
+            </div>
+          </div>
+          <div class="st-section">
+            <div class="st-section-title" onclick="toggleSection(this)"><span class="st-chevron">▾</span><span data-i18n="settings_theme">Thème</span></div>
+            <div class="st-section-body">
+              <div class="theme-switcher">
+                <div class="theme-option">
+                  <button class="theme-btn" data-theme="parchment" onclick="setTheme('parchment')"></button>
+                  <span class="theme-label" data-i18n="theme_light">Clair</span>
+                </div>
+                <div class="theme-option">
+                  <button class="theme-btn" data-theme="dark-brown" onclick="setTheme('dark-brown')"></button>
+                  <span class="theme-label" data-i18n="theme_dark">Sombre</span>
+                </div>
               </div>
             </div>
           </div>
@@ -160,23 +175,25 @@
         </div>
         <div id="pf-content"></div>
       </div>
-      <div id="main">
+      <div id="log-page">
         <div id="log-header">
           <div id="log-title" data-i18n="history_title">Historique</div>
           <div id="session-count"></div>
         </div>
-        <div id="sessions-list">
-          <div id="empty-msg">Aucune session enregistrée <span id="blink">_</span></div>
-        </div>
-        <div id="steam-note">
-          <span><span id="steam-label" data-i18n="steam_label">■ Steam (importé) :</span> <b id="steam-display">00h 00m</b></span>
-          <button class="btn-sm" onclick="toggleSteamEdit()" data-i18n="steam_edit">Modifier</button>
-        </div>
-        <div id="steam-input-row">
-          <label data-i18n="edit_h">h :</label><input type="number" id="steam-h-inp" min="0" value="0">
-          <label data-i18n="edit_min">min :</label><input type="number" id="steam-m-inp" min="0" max="59" value="0">
-          <button class="btn-sm" onclick="saveSteam()" data-i18n="steam_ok">Ok</button>
-          <button class="btn-sm btn-cancel" onclick="document.getElementById('steam-input-row').style.display='none'" data-i18n="steam_cancel">Annuler</button>
+        <div id="main">
+          <div id="sessions-list">
+            <div id="empty-msg">Aucune session enregistrée <span id="blink">_</span></div>
+          </div>
+          <div id="steam-note">
+            <span><span id="steam-label" data-i18n="steam_label">■ Steam (importé) :</span> <b id="steam-display">00h 00m</b></span>
+            <button class="btn-sm" onclick="toggleSteamEdit()" data-i18n="steam_edit">Modifier</button>
+          </div>
+          <div id="steam-input-row">
+            <label data-i18n="edit_h">h :</label><input type="number" id="steam-h-inp" min="0" value="0">
+            <label data-i18n="edit_min">min :</label><input type="number" id="steam-m-inp" min="0" max="59" value="0">
+            <button class="btn-sm" onclick="saveSteam()" data-i18n="steam_ok">Ok</button>
+            <button class="btn-sm btn-cancel" onclick="document.getElementById('steam-input-row').style.display='none'" data-i18n="steam_cancel">Annuler</button>
+          </div>
         </div>
       </div>
     </div>
