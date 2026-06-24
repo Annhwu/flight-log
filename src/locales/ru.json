@@ -8,7 +8,7 @@
   "session_active": "Сеанс идёт",
   "session_start": "▶ ВКЛ",
   "session_stop": "■ ВЫКЛ",
-  "search_hint": "Поиск по имени, #номеру или описанию…",
+  "search_hint": "Поиск вылета по имени, #номеру или описанию...",
   "search_placeholder": "Поиск…",
   "history_title": "История",
   "history_empty": "Нет записанных сеансов",
@@ -59,7 +59,7 @@
   "profile_choose_image": "Выбрать изображение",
   "profile_image_hint": "512 × 512 пкс (квадрат)",
   "profile_delete_photo": "Удалить фото",
-  "profile_pilot_name": "Имя пилота",
+  "profile_pilot_name": "Имя",
   "profile_module_search": "Поиск модуля...",
   "profile_modules": "Модули DCS",
   "profile_modules_count": "Модули DCS ({{count}})",
@@ -76,6 +76,9 @@
   "settings_save": "Сохранить",
   "settings_cancel": "Отмена",
   "settings_language": "Язык",
+  "settings_theme": "Тема",
+  "theme_light": "Светлый",
+  "theme_dark": "Тёмный",
   "debrief_name": "Название",
   "debrief_name_ph": "Название",
   "debrief_aircraft": "Летательные аппараты",
@@ -113,5 +116,8 @@
   "change_missions": "Тип(ы) миссии: {{list}}",
   "change_aircraft": "Аппарат(ы): {{list}}",
   "error_invalid_json": "Недопустимый файл JSON.",
-  "save_indicator": "✓ Сохранено"
+  "save_indicator": "✓ Сохранено",
+  "ctx_cut": "Вырезать",
+  "ctx_copy": "Копировать",
+  "ctx_paste": "Вставить"
 }

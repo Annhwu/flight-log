@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Fragment>
+
+    <!-- Default language if user skips -->
+    <Property Id="APPLANG" Value="en" />
+
+    <UI>
+      <!-- Radio button options (bound to APPLANG property) -->
+      <RadioButtonGroup Property="APPLANG">
+        <RadioButton Value="en" X="0" Y="0"  Width="220" Height="15" Text="English" />
+        <RadioButton Value="fr" X="0" Y="20" Width="220" Height="15" Text="Français" />
+        <RadioButton Value="ru" X="0" Y="40" Width="220" Height="15" Text="Русский" />
+      </RadioButtonGroup>
+
+      <Dialog Id="LangSelectionDlg" Width="370" Height="270" Title="Flight Log">
+        <Control Id="BannerLine"  Type="Line"        X="0"   Y="44"  Width="374" Height="0" />
+        <Control Id="BottomLine"  Type="Line"        X="0"   Y="234" Width="374" Height="0" />
+
+        <Control Id="Title" Type="Text" X="15" Y="12" Width="340" Height="15"
+                 Transparent="yes" NoPrefix="yes">
+          <Text>{\WixUI_Font_Title}Language / Langue / Язык</Text>
+        </Control>
+        <Control Id="Subtitle" Type="Text" X="25" Y="30" Width="320" Height="15"
+                 Transparent="yes" NoPrefix="yes">
+          <Text>Choose the language for Flight Log:</Text>
+        </Control>
+
+        <Control Id="LangPicker" Type="RadioButtonGroup" Property="APPLANG"
+                 X="40" Y="78" Width="220" Height="70" />
+
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17"
+                 Default="yes" Text="Next &gt;">
+          <Publish Event="NewDialog" Value="WelcomeDlg">1</Publish>
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17"
+                 Cancel="yes" Text="Cancel">
+          <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
+        </Control>
+      </Dialog>
+    </UI>
+
+    <!-- Show language dialog before the Welcome dialog -->
+    <InstallUISequence>
+      <Show Dialog="LangSelectionDlg" Before="WelcomeDlg">NOT Installed</Show>
+    </InstallUISequence>
+
+    <!--
+      Two-step deferred custom action pattern:
+        Step 1 (immediate): build the PowerShell command with [APPLANG] substituted.
+        Step 2 (deferred):  run it as the installing user so %APPDATA% resolves correctly.
+    -->
+    <CustomAction Id="CA_SetLangData"
+                  Property="CA_WriteLang"
+                  Value="powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -Command &quot;$d=[IO.Path]::Combine($env:APPDATA,'com.flight.log');[IO.Directory]::CreateDirectory($d)|Out-Null;[IO.File]::WriteAllText([IO.Path]::Combine($d,'lang.ini'),'lang=[APPLANG]')&quot;"
+                  Execute="immediate" />
+
+    <CustomAction Id="CA_WriteLang" Script="vbscript"
+                  Execute="deferred" Impersonate="yes" Return="ignore">
+<![CDATA[
+      On Error Resume Next
+      CreateObject("WScript.Shell").Run Session.Property("CustomActionData"), 0, True
+]]>
+    </CustomAction>
+
+    <InstallExecuteSequence>
+      <Custom Action="CA_SetLangData" Before="CA_WriteLang">NOT Installed</Custom>
+      <Custom Action="CA_WriteLang" After="InstallFiles">NOT Installed</Custom>
+    </InstallExecuteSequence>
+
+  </Fragment>
+</Wix>
