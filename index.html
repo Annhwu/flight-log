@@ -91,7 +91,7 @@
               </label>
               <div class="edit-actions" style="margin-top:4px;">
                 <button class="btn-sm" onclick="saveSettings()" data-i18n="settings_save">Sauvegarder</button>
-                <button class="btn-sm" onclick="cancelSettings()" data-i18n="settings_cancel">Annuler</button>
+                <button class="btn-sm btn-cancel" onclick="cancelSettings()" data-i18n="settings_cancel">Annuler</button>
               </div>
             </div>
           </div>
@@ -149,7 +149,7 @@
           </div>
           <div class="edit-actions">
             <button class="btn-sm" onclick="saveNewFlight()" data-i18n="new_flight_add">Ajouter</button>
-            <button class="btn-sm" onclick="showHistorique()" data-i18n="new_flight_cancel">Annuler</button>
+            <button class="btn-sm btn-cancel" onclick="showHistorique()" data-i18n="new_flight_cancel">Annuler</button>
           </div>
           <div id="nf-save-msg" data-i18n="new_flight_saved">✓ Sauvegardé</div>
         </div>
@@ -176,7 +176,7 @@
           <label data-i18n="edit_h">h :</label><input type="number" id="steam-h-inp" min="0" value="0">
           <label data-i18n="edit_min">min :</label><input type="number" id="steam-m-inp" min="0" max="59" value="0">
           <button class="btn-sm" onclick="saveSteam()" data-i18n="steam_ok">Ok</button>
-          <button class="btn-sm" onclick="document.getElementById('steam-input-row').style.display='none'" data-i18n="steam_cancel">Annuler</button>
+          <button class="btn-sm btn-cancel" onclick="document.getElementById('steam-input-row').style.display='none'" data-i18n="steam_cancel">Annuler</button>
         </div>
       </div>
     </div>
@@ -187,7 +187,7 @@
       <div class="st-confirm-actions">
         <button class="btn-sm" onclick="confirmCardLeave(true)" data-i18n="confirm_save">Sauvegarder</button>
         <button class="btn-sm confirm-stay-btn" onclick="confirmCardLeave(null)" data-i18n="confirm_edit">Modifier</button>
-        <button class="btn-sm" onclick="confirmCardLeave(false)" data-i18n="confirm_dont_save">Ne pas sauvegarder</button>
+        <button class="btn-sm btn-cancel" onclick="confirmCardLeave(false)" data-i18n="confirm_dont_save">Ne pas sauvegarder</button>
       </div>
     </div>
   </div>
@@ -197,7 +197,7 @@
       <div class="st-confirm-actions">
         <button class="btn-sm" onclick="confirmNewFlightLeave(true)" data-i18n="confirm_save">Sauvegarder</button>
         <button class="btn-sm confirm-stay-btn" onclick="confirmNewFlightLeave(null)" data-i18n="confirm_edit">Modifier</button>
-        <button class="btn-sm" onclick="confirmNewFlightLeave(false)" data-i18n="confirm_dont_save">Ne pas sauvegarder</button>
+        <button class="btn-sm btn-cancel" onclick="confirmNewFlightLeave(false)" data-i18n="confirm_dont_save">Ne pas sauvegarder</button>
       </div>
     </div>
   </div>
@@ -207,7 +207,7 @@
       <div class="st-confirm-actions">
         <button class="btn-sm" onclick="confirmProfileLeave(true)" data-i18n="confirm_save">Sauvegarder</button>
         <button class="btn-sm confirm-stay-btn" onclick="confirmProfileLeave(null)" data-i18n="confirm_edit">Modifier</button>
-        <button class="btn-sm" onclick="confirmProfileLeave(false)" data-i18n="confirm_dont_save">Ne pas sauvegarder</button>
+        <button class="btn-sm btn-cancel" onclick="confirmProfileLeave(false)" data-i18n="confirm_dont_save">Ne pas sauvegarder</button>
       </div>
     </div>
   </div>
@@ -217,7 +217,7 @@
       <div class="st-confirm-actions">
         <button class="btn-sm" onclick="confirmSettingsLeave(true)" data-i18n="confirm_save">Sauvegarder</button>
         <button class="btn-sm confirm-stay-btn" onclick="confirmSettingsLeave(null)" data-i18n="confirm_edit">Modifier</button>
-        <button class="btn-sm" onclick="confirmSettingsLeave(false)" data-i18n="confirm_dont_save">Ne pas sauvegarder</button>
+        <button class="btn-sm btn-cancel" onclick="confirmSettingsLeave(false)" data-i18n="confirm_dont_save">Ne pas sauvegarder</button>
       </div>
     </div>
   </div>

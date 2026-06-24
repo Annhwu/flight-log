@@ -561,7 +561,7 @@ function renderSessions(): void {
         </div>
         <div class="edit-actions">
           <button class="btn-sm" onclick="saveEdit(${s.id})">${t('edit_save')}</button>
-          <button class="btn-sm" onclick="cancelEdit(${s.id})">${t('edit_cancel')}</button>
+          <button class="btn-sm btn-cancel" onclick="cancelEdit(${s.id})">${t('edit_cancel')}</button>
           <button class="btn-danger" onclick="deleteSession(${s.id})">${t('edit_delete')}</button>
         </div>
       </div>
@@ -1079,7 +1079,7 @@ function editProfile(): void {
     const sel = profile.modules.includes(mod.name);
     return `<button type="button" class="pf-module-toggle${sel ? ' selected' : ''}" onclick="this.classList.toggle('selected')" data-module="${escapeHtml(mod.name)}">${escapeHtml(mod.name)}</button>`;
   }).join('');
-  const removeBtn = profile.avatar ? `<button class="btn-sm" onclick="removeAvatar()">${t('profile_delete_photo')}</button>` : '';
+  const removeBtn = profile.avatar ? `<button class="btn-sm btn-cancel" onclick="removeAvatar()">${t('profile_delete_photo')}</button>` : '';
   content.innerHTML = `
     <div class="pf-edit">
       <div class="pf-field">
@@ -1105,7 +1105,7 @@ function editProfile(): void {
       </div>
       <div class="pf-edit-actions">
         <button class="btn-sm" onclick="saveProfile()">${t('profile_save')}</button>
-        <button class="btn-sm" onclick="cancelEditProfile()">${t('profile_cancel')}</button>
+        <button class="btn-sm btn-cancel" onclick="cancelEditProfile()">${t('profile_cancel')}</button>
       </div>
     </div>`;
 }
@@ -1134,7 +1134,7 @@ function uploadAvatar(event: Event): void {
       const preview = document.getElementById('pf-avatar-preview');
       if (preview) preview.innerHTML = `<img class="pf-avatar-img" src="${dataUrl}" alt="avatar" width="72" height="72">`;
       const wrap = document.getElementById('pf-avatar-remove-wrap');
-      if (wrap && !wrap.querySelector('button')) wrap.innerHTML = `<button class="btn-sm" onclick="removeAvatar()">${t('profile_delete_photo')}</button>`;
+      if (wrap && !wrap.querySelector('button')) wrap.innerHTML = `<button class="btn-sm btn-cancel" onclick="removeAvatar()">${t('profile_delete_photo')}</button>`;
     };
     img.src = e.target?.result as string;
   };
