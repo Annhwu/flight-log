@@ -395,7 +395,6 @@ function renderSessions(): void {
     const nameLine     = s.name  ? `<div class="s-name">${escapeHtml(s.name)}</div>` : '';
     const notesBadge   = s.notes ? `<div class="row s-note-badge">Détail supplémentaire</div>` : '';
     const aircraftRow  = s.aircraft?.length ? `<div class="s-aircraft-row">${s.aircraft.map(a => `<span class="s-aircraft-tag">${escapeHtml(a)}</span>`).join('')}</div>` : '';
-    const notesPreview = '';
     const notesFull    = s.notes
       ? `<div class="s-notes-full">${escapeHtml(s.notes).replace(/\n/g, '<br>')}</div>`
       : `<div class="s-notes-empty">Aucune note pour ce vol.</div>`;
@@ -410,8 +409,8 @@ function renderSessions(): void {
           ${aircraftRow}
         </div>
         <div class="s-dur">${durLabel(s.durationMin)}</div>
-        <button class="btn-sm" onclick="event.stopPropagation();toggleEdit(${s.id})">Éditer</button>
-        <button class="btn-danger" onclick="event.stopPropagation();deleteSession(${s.id})">Supprimer</button>
+        <button class="btn-icon" onclick="event.stopPropagation();toggleEdit(${s.id})" title="Éditer"><img src="./src/icons/pencil.png" width="16" height="16"></button>
+        <button class="btn-icon btn-icon-danger" onclick="event.stopPropagation();deleteSession(${s.id})" title="Supprimer"><img src="./src/icons/trash.png" width="16" height="16"></button>
       </div>
       <div class="s-details" id="details-${s.id}">
         ${notesFull}
