@@ -5,11 +5,25 @@ import ru from './locales/ru.json';
 
 const LOCALE_MAP: Record<string, string> = { fr: 'fr-FR', en: 'en-GB', ru: 'ru-RU' };
 
+async function getInstallerLang(): Promise<string | null> {
+  try {
+    const { readTextFile, BaseDirectory } = await import('@tauri-apps/plugin-fs');
+    const ini = await readTextFile('com.flight.log/lang.ini', { baseDir: BaseDirectory.AppData });
+    const match = ini.match(/^lang\s*=\s*(\w+)/m);
+    if (match) return match[1];
+  } catch { /* file doesn't exist yet */ }
+  return null;
+}
+
 export async function initI18n(): Promise<void> {
-  const saved = localStorage.getItem('lang') || 'fr';
+  let saved = localStorage.getItem('lang');
+  if (!saved) {
+    saved = await getInstallerLang() || 'en';
+    if (saved !== 'en') localStorage.setItem('lang', saved);
+  }
   await i18next.init({
     lng: saved,
-    fallbackLng: 'fr',
+    fallbackLng: 'en',
     interpolation: { escapeValue: false },
     resources: {
       fr: { translation: fr },
@@ -29,11 +43,11 @@ export async function setLang(lang: string): Promise<void> {
 }
 
 export function getLang(): string {
-  return i18next.language || 'fr';
+  return i18next.language || 'en';
 }
 
 export function getLocale(): string {
-  return LOCALE_MAP[getLang()] || 'fr-FR';
+  return LOCALE_MAP[getLang()] || 'en-GB';
 }
 
 export function applyStaticTranslations(): void {
