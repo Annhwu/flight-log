@@ -481,8 +481,8 @@ function renderSessions(): void {
           </div>
         </div>
         <div class="notes-group">
-          <label class="edit-block-label">Nom du vol</label>
-          <input type="text" id="ename-${s.id}" class="debrief-input" style="width:100%" placeholder="ex : Patrouille sur le Caucase" value="${escapeHtml(s.name || '')}">
+          <label class="edit-block-label">Nom</label>
+          <input type="text" id="ename-${s.id}" class="debrief-input" style="width:100%" placeholder="Nom" value="${escapeHtml(s.name || '')}">
         </div>
         <div class="notes-group">
           <label class="edit-block-label">Type(s) de mission</label>
@@ -494,7 +494,7 @@ function renderSessions(): void {
         </div>
         <div class="notes-group">
           <label class="edit-block-label">Détail du vol</label>
-          <textarea id="enotes-${s.id}" class="notes-textarea" placeholder="Commentaire..." oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'">${escapeHtml(s.notes || '')}</textarea>
+          <textarea id="enotes-${s.id}" class="notes-textarea" placeholder="Commentaire.." oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'">${escapeHtml(s.notes || '')}</textarea>
         </div>
         <div class="edit-actions">
           <button class="btn-sm" onclick="saveEdit(${s.id})">Sauvegarder</button>
