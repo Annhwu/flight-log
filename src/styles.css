@@ -221,8 +221,13 @@ hr{border:none;border-top:1.5px solid var(--border);margin:12px 0;flex-shrink:0;
 .mission-tags-row{display:flex;flex-wrap:wrap;gap:4px;}
 .mission-add-btn{width:28px;height:28px;border-radius:8px;border:1.5px dashed var(--border);background:transparent;color:var(--ink3);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.15s;line-height:1;}
 .mission-add-btn:hover{border-color:#2a3d4a;color:#2a3d4a;background:var(--bg3);}
-.mission-panel{display:none;flex-wrap:wrap;gap:6px;padding:6px 0;}
+.mission-panel{display:none;flex-wrap:wrap;gap:6px;padding:6px 0;align-items:center;}
 .mission-panel.open{display:flex;}
+.mission-custom-row{display:inline-flex;align-items:center;background:var(--bg3);border-radius:20px;border:1.5px solid var(--border);padding:0 4px 0 10px;margin-top:2px;}
+.mission-custom-input{font-family:'Inter',sans-serif;font-size:12px;border:none;background:transparent;color:var(--ink);outline:none;min-width:10px;width:52px;padding:3px 4px 3px 0;}
+.mission-custom-input::placeholder{color:var(--ink3);letter-spacing:0.05em;font-style:italic;}
+.mission-custom-add{font-size:16px;line-height:1;width:22px;height:22px;border:none;background:transparent;color:var(--ink3);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;}
+.mission-custom-add:hover{color:var(--ink);}
 .mission-chip{font-family:'Inter',sans-serif;font-size:12px;padding:3px 10px;border-radius:20px;border:1.5px solid var(--border);background:#fff;color:var(--ink);cursor:pointer;transition:all 0.15s;opacity:0.45;}
 .mission-chip:hover{opacity:0.75;}
 .mission-chip.selected{opacity:1;}
