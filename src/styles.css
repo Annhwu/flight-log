@@ -82,11 +82,11 @@ body{background:var(--bg);height:100vh;display:flex;flex-direction:column;margin
 #search-hint{position:absolute;left:30px;top:50%;transform:translateY(-50%);white-space:nowrap;color:var(--ink3);font-size:13px;pointer-events:none;animation:search-marquee 9s linear infinite;z-index:1;}
 #search-bar:focus-within #search-hint,#search-input:not(:placeholder-shown)~#search-hint{opacity:0;}
 @keyframes search-marquee{
-  0%{transform:translateY(-50%) translateX(0);}
-  70%{transform:translateY(-50%) translateX(-200px);}
-  85%{transform:translateY(-50%) translateX(-200px);}
-  86%{transform:translateY(-50%) translateX(0);}
-  100%{transform:translateY(-50%) translateX(0);}
+  0%  {transform:translateY(-50%) translateX(0);    opacity:1;}
+  70% {transform:translateY(-50%) translateX(-200px);opacity:1;}
+  80% {transform:translateY(-50%) translateX(-200px);opacity:0;}
+  81% {transform:translateY(-50%) translateX(0);    opacity:0;}
+  100%{transform:translateY(-50%) translateX(0);    opacity:1;}
 }
 
 /* ── Zone principale ── */
@@ -100,6 +100,8 @@ body{background:var(--bg);height:100vh;display:flex;flex-direction:column;margin
 .btn.active:hover{background:#8a2020;color:#fff;}
 .btn-sm{font-family:'Inter',sans-serif;font-size:12px;border:1.5px solid var(--ink);background:#fff;color:var(--ink);padding:5px 12px;border-radius:6px;cursor:pointer;transition:background 0.15s;}
 .btn-sm:hover{background:#4a3d32;color:#fff;}
+.btn-cancel{border-color:#8a2020;color:#8a2020;}
+.btn-cancel:hover{background:#8a2020;color:#fff;}
 .btn-danger{font-family:'Inter',sans-serif;font-size:12px;border:1.5px solid #8a2020;background:#fff;color:#8a2020;padding:5px 12px;border-radius:6px;cursor:pointer;}
 .edit-actions .btn-danger{margin-left:auto;}
 .btn-danger:hover{background:#8a2020;color:#fff;}
