@@ -129,6 +129,7 @@ hr{border:none;border-top:1.5px solid var(--border);margin:12px 0;flex-shrink:0;
 .res-label{font-size:12px;color:var(--ink3);}
 .res-dur{font-family:var(--mono);font-size:16px;color:var(--ink);font-weight:bold;}
 .edit-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.edit-actions .btn-sm{border-radius:35px;}
 .card-header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;cursor:pointer;width:100%;}
 .s-note-badge{font-size:11px;color:var(--ink3);font-style:italic;}
 .s-notes{display:none;}
