@@ -13,7 +13,10 @@ interface Session {
   name?: string;
   notes?: string;
   aircraft?: string[];
+  missionTypes?: string[];
 }
+
+const MISSION_TYPES = ['Training', 'CAP', 'CAS', 'SEAD', 'Strike', 'Intercept', 'Recon', 'Anti-Ship'];
 
 interface DCSModule {
   name: string;
@@ -396,6 +399,7 @@ function renderSessions(): void {
     const nameLine     = s.name  ? `<div class="s-name">${escapeHtml(s.name)}</div>` : '';
     const notesBadge   = s.notes ? `<div class="row s-note-badge">Détail supplémentaire</div>` : '';
     const aircraftRow  = s.aircraft?.length ? `<div class="s-aircraft-row">${s.aircraft.map(a => `<span class="s-aircraft-tag">${escapeHtml(a)}</span>`).join('')}</div>` : '';
+    const missionRow   = s.missionTypes?.length ? `<div class="s-aircraft-row">${s.missionTypes.map(t => `<span class="s-mission-tag" data-mission="${escapeHtml(t)}">${escapeHtml(t)}</span>`).join('')}</div>` : '';
     const notesFull    = s.notes
       ? `<div class="s-notes-full">${escapeHtml(s.notes).replace(/\n/g, '<br>')}</div>`
       : `<div class="s-notes-empty">Aucune note pour ce vol.</div>`;
@@ -407,6 +411,7 @@ function renderSessions(): void {
           <div class="row">Déb&nbsp;<span>${fmtDate(start)} ${pad(start.getHours())}:${pad(start.getMinutes())}</span></div>
           <div class="row">Fin&nbsp;<span>${fmtDate(end)} ${pad(end.getHours())}:${pad(end.getMinutes())}</span></div>
           ${notesBadge}
+          ${missionRow}
           ${aircraftRow}
         </div>
         <div class="s-dur">${durLabel(s.durationMin)}</div>
@@ -435,13 +440,13 @@ function renderSessions(): void {
             <div class="ef-group"><label>min</label><input type="number" id="em2-${s.id}" min="0" max="59" value="${end.getMinutes()}" oninput="updateEditResult(${s.id})"></div>
           </div>
         </div>
-        <div class="edit-result">
-          <span class="res-label">Durée calculée</span>
-          <span class="res-dur" id="res-dur-${s.id}">${durLabel(s.durationMin)}</span>
-        </div>
         <div class="notes-group">
           <label class="edit-block-label">Nom du vol</label>
           <input type="text" id="ename-${s.id}" class="debrief-input" style="width:100%" placeholder="ex : Patrouille sur le Caucase" value="${escapeHtml(s.name || '')}">
+        </div>
+        <div class="notes-group">
+          <label class="edit-block-label">Type(s) de mission</label>
+          <div class="mission-picker-wrap">${renderMissionPickerHtml(s.id, s.missionTypes ?? [])}</div>
         </div>
         <div class="notes-group">
           <label class="edit-block-label">Appareil(s) volé(s)</label>
@@ -508,6 +513,8 @@ async function saveEdit(id: number): Promise<void> {
   sessions[idx].notes = (document.getElementById('enotes-' + id) as HTMLTextAreaElement).value.trim() || undefined;
   const ac = Array.from(document.querySelectorAll<HTMLElement>(`#eaircraft-${id} .aircraft-toggle.selected`)).map(el => el.dataset.aircraft!).filter(Boolean);
   sessions[idx].aircraft = ac.length ? ac : undefined;
+  const mt = Array.from(document.querySelectorAll<HTMLElement>(`#emission-tags-${id} [data-mission]`)).map(el => el.dataset.mission!).filter(Boolean);
+  sessions[idx].missionTypes = mt.length ? mt : undefined;
   renderSessions(); updateTotal(); await saveToFile();
 }
 async function deleteSession(id: number): Promise<void> {
@@ -586,6 +593,48 @@ function getEffectiveOwnedModuleNames(): Set<string> {
   return owned;
 }
 
+function missionTagHtml(id: number, t: string): string {
+  return `<span class="mission-tag" data-mission="${escapeHtml(t)}">${escapeHtml(t)}<button type="button" class="mission-tag-remove" onclick="removeMissionType(${id},'${escapeHtml(t)}')"><img src="./src/icons/close.png" alt="×"></button></span>`;
+}
+
+function renderMissionPickerHtml(id: number, selected: string[]): string {
+  const tags = selected.map(t => missionTagHtml(id, t)).join('');
+  const chips = MISSION_TYPES.map(t => {
+    const sel = selected.includes(t);
+    return `<button type="button" class="mission-chip${sel ? ' selected' : ''}" onclick="toggleMissionType(${id},'${escapeHtml(t)}')" data-mission="${escapeHtml(t)}">${escapeHtml(t)}</button>`;
+  }).join('');
+  return `
+    <div class="mission-picker-row">
+      <div class="mission-tags-row" id="emission-tags-${id}">${tags}</div>
+      <button type="button" class="mission-add-btn" onclick="toggleMissionPanel(${id})">+</button>
+    </div>
+    <div class="mission-panel" id="emission-panel-${id}">${chips}</div>`;
+}
+
+function toggleMissionPanel(id: number): void {
+  document.getElementById(`emission-panel-${id}`)?.classList.toggle('open');
+}
+
+function toggleMissionType(id: number, type: string): void {
+  const chip = document.querySelector<HTMLElement>(`#emission-panel-${id} [data-mission="${type}"]`);
+  if (!chip) return;
+  const adding = !chip.classList.contains('selected');
+  chip.classList.toggle('selected');
+  const tagsRow = document.getElementById(`emission-tags-${id}`);
+  if (!tagsRow) return;
+  if (adding) {
+    tagsRow.insertAdjacentHTML('beforeend', missionTagHtml(id, type));
+  } else {
+    tagsRow.querySelector<HTMLElement>(`[data-mission="${type}"]`)?.remove();
+  }
+}
+
+function removeMissionType(id: number, type: string): void {
+  document.getElementById(`emission-tags-${id}`)?.querySelector<HTMLElement>(`[data-mission="${type}"]`)?.remove();
+  const chip = document.querySelector<HTMLElement>(`#emission-panel-${id} [data-mission="${type}"]`);
+  chip?.classList.remove('selected');
+}
+
 function renderAircraftPickerHtml(selected: string[]): string {
   if (!profile.modules.length) return `<span class="pf-empty">Aucun module configuré dans le profil.</span>`;
   const ownedMods = DCS_MODULES.filter(mod => getEffectiveOwnedModuleNames().has(mod.name));
@@ -593,7 +642,7 @@ function renderAircraftPickerHtml(selected: string[]): string {
   ownedMods.forEach(mod => (mod.variants ?? [mod.name]).forEach(m => modelsSet.add(m)));
   return Array.from(modelsSet).sort().map(model => {
     const sel = selected.includes(model);
-    return `<button type="button" class="aircraft-toggle${sel ? ' selected' : ''}" onclick="this.classList.toggle('selected')" data-aircraft="${escapeHtml(model)}">${escapeHtml(model)}</button>`;
+    return `<button type="button" class="aircraft-toggle${sel ? ' selected' : ''}" onclick="this.classList.toggle('selected')" data-aircraft="${escapeHtml(model)}">${escapeHtml(model)}<img class="aircraft-toggle-close" src="./src/icons/close.png" alt="×"></button>`;
   }).join('');
 }
 
@@ -677,6 +726,9 @@ window.filterSessions = renderSessions;
 window.showProfile = showProfile;
 (window as any).showHistorique = showHistorique;
 (window as any).toggleBurger = toggleBurger;
+(window as any).toggleMissionPanel = toggleMissionPanel;
+(window as any).toggleMissionType = toggleMissionType;
+(window as any).removeMissionType = removeMissionType;
 (window as any).closeBurger = closeBurger;
 (window as any).syncBurgerSearch = syncBurgerSearch;
 window.hideProfile = hideProfile;
