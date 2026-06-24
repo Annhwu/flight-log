@@ -1,12 +1,70 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
+const MISSION_TYPES = ['Training', 'CAP', 'CAS', 'SEAD', 'Strike', 'Intercept', 'Recon', 'Anti-Ship'];
 async function invoke(cmd, args) {
     return window.__TAURI_INTERNALS__.invoke(cmd, args);
 }
 // ─── State ─────────────────────────────────────────────────────────────────
+const DCS_MODULES = [
+    { name: 'A-10A FC', variants: ['A-10A'] },
+    { name: 'A-10C II' },
+    { name: 'AH-64D' },
+    { name: 'AJS-37' },
+    { name: 'AV-8B' },
+    { name: 'Bf 109 K-4' },
+    { name: 'C-101' },
+    { name: 'C-130J' },
+    { name: 'CH-47F' },
+    { name: 'Christen Eagle II' },
+    { name: 'F-100D' },
+    { name: 'F-14A/B/BU', variants: ['F-14A', 'F-14B', 'F-14BU'] },
+    { name: 'F-15C' },
+    { name: 'F-15E' },
+    { name: 'F-16C' },
+    { name: 'F-4E' },
+    { name: 'F-5E Belsimtek' },
+    { name: 'F-5E Remastered' },
+    { name: 'F-86F Belsimtek' },
+    { name: 'F-86F FC' },
+    { name: 'F/A-18C' },
+    { name: 'F4U-1D' },
+    { name: 'FC3', variants: ['A-10A', 'Su-27', 'Su-33', 'Su-25', 'F-15C', 'MiG-29A', 'MiG-29S'], includes: ['A-10A FC', 'Su-27 FC', 'Su-33 FC', 'Su-25 FC', 'F-15C', 'MiG-29 FC'] },
+    { name: 'Fw 190' },
+    { name: 'Fw 190 A-8' },
+    { name: 'Hawk T.1A' },
+    { name: 'I-16' },
+    { name: 'JF-17' },
+    { name: 'Ka-50' },
+    { name: 'L-39' },
+    { name: 'La-7' },
+    { name: 'M-2000C' },
+    { name: 'MB-339' },
+    { name: 'Mi-24P' },
+    { name: 'Mi-8MTV2' },
+    { name: 'MiG-15bis Belsimtek' },
+    { name: 'MiG-15bis FC' },
+    { name: 'MiG-19P' },
+    { name: 'MiG-21bis' },
+    { name: 'MiG-29 FC', variants: ['MiG-29A', 'MiG-29S'] },
+    { name: 'MiG-29A 9.12' },
+    { name: 'Mirage F1' },
+    { name: 'Mosquito FB VI' },
+    { name: 'OH-58D' },
+    { name: 'P-47D' },
+    { name: 'P-51D' },
+    { name: 'SA342' },
+    { name: 'Spitfire LF Mk. IX' },
+    { name: 'Su-25 FC', variants: ['Su-25'] },
+    { name: 'Su-27 FC', variants: ['Su-27'] },
+    { name: 'Su-33 FC', variants: ['Su-33'] },
+    { name: 'UH-1H' },
+    { name: 'Yak-52' },
+];
 let sessions = [];
 let steamMinutes = 0;
 let activeStart = null;
 let elapsedInterval = null;
+let pendingSession = null;
+let profile = { name: '', modules: [] };
 // ─── Utilitaires ───────────────────────────────────────────────────────────
 function pad(n) { return String(n).padStart(2, '0'); }
 function escapeHtml(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
@@ -18,7 +76,7 @@ function secsToHMS(s) { const h = Math.floor(s / 3600), mm = Math.floor((s % 360
 function durLabel(min) { const d = Math.floor(min / 1440), h = Math.floor((min % 1440) / 60), m = Math.round(min % 60); return (d > 0 ? d + 'j ' : '') + pad(h) + 'h ' + pad(m) + 'm'; }
 // ─── Sauvegarde automatique via Tauri ──────────────────────────────────────
 async function saveToFile() {
-    const data = { steamMinutes, sessions };
+    const data = { steamMinutes, sessions, profile };
     await invoke('save_data', { content: JSON.stringify(data, null, 2) });
     showSaveIndicator();
 }
@@ -29,6 +87,7 @@ async function loadFromFile() {
             const data = JSON.parse(content);
             steamMinutes = data.steamMinutes ?? 0;
             sessions = data.sessions ?? [];
+            profile = data.profile ?? { name: '', modules: [] };
         }
     }
     catch {
@@ -132,12 +191,12 @@ function toggleSession() {
         const end = new Date();
         if (elapsedInterval !== null)
             clearInterval(elapsedInterval);
-        sessions.unshift({
+        pendingSession = {
             id: Date.now(),
             startTs: activeStart.getTime(),
             endTs: end.getTime(),
             durationMin: (end.getTime() - activeStart.getTime()) / 60000,
-        });
+        };
         activeStart = null;
         btn.textContent = '▶ ON';
         btn.classList.remove('active');
@@ -150,10 +209,52 @@ function toggleSession() {
             siTime.textContent = '--:--:--';
         if (siElapsed)
             siElapsed.textContent = '';
-        renderSessions();
-        updateTotal();
-        saveToFile();
+        openDebrief();
     }
+}
+function openDebrief() {
+    if (!pendingSession)
+        return;
+    const num = sessions.length + 1;
+    document.getElementById('debrief-num').textContent = 'Vol #' + pad(num);
+    document.getElementById('debrief-dur').textContent = durLabel(pendingSession.durationMin);
+    document.getElementById('debrief-name').value = '';
+    document.getElementById('debrief-notes').value = '';
+    const picker = document.getElementById('debrief-aircraft-picker');
+    if (picker)
+        picker.innerHTML = renderAircraftPickerHtml([]);
+    const mwrap = document.getElementById('debrief-mission-picker-wrap');
+    if (mwrap)
+        mwrap.innerHTML = renderMissionPickerHtml(0, []);
+    document.getElementById('debrief-overlay').classList.add('open');
+    setTimeout(() => document.getElementById('debrief-name').focus(), 50);
+}
+async function confirmDebrief() {
+    if (!pendingSession)
+        return;
+    pendingSession.name = document.getElementById('debrief-name').value.trim() || undefined;
+    pendingSession.notes = document.getElementById('debrief-notes').value.trim() || undefined;
+    pendingSession.aircraft = Array.from(document.querySelectorAll('#debrief-aircraft-picker .aircraft-toggle.selected')).map(el => el.dataset.aircraft).filter(Boolean);
+    if (!pendingSession.aircraft.length)
+        pendingSession.aircraft = undefined;
+    const mt = Array.from(document.querySelectorAll('#emission-tags-0 [data-mission]')).map(el => el.dataset.mission).filter(Boolean);
+    pendingSession.missionTypes = mt.length ? mt : undefined;
+    sessions.unshift(pendingSession);
+    pendingSession = null;
+    document.getElementById('debrief-overlay').classList.remove('open');
+    renderSessions();
+    updateTotal();
+    await saveToFile();
+}
+async function skipDebrief() {
+    if (!pendingSession)
+        return;
+    sessions.unshift(pendingSession);
+    pendingSession = null;
+    document.getElementById('debrief-overlay').classList.remove('open');
+    renderSessions();
+    updateTotal();
+    await saveToFile();
 }
 function updateElapsed() {
     if (!activeStart)
@@ -161,6 +262,7 @@ function updateElapsed() {
     const el = document.getElementById('si-elapsed');
     if (el)
         el.textContent = '⏱ ' + secsToHMS(Math.floor((Date.now() - activeStart.getTime()) / 1000));
+    syncBurgerState();
 }
 // ─── Édition ───────────────────────────────────────────────────────────────
 function calcEditDur(id) {
@@ -189,32 +291,51 @@ function updateEditResult(id) {
 function renderSessions() {
     const list = document.getElementById('sessions-list');
     const sc = document.getElementById('session-count');
+    const query = (document.getElementById('search-input')?.value ?? '').trim().toLowerCase();
     if (!sessions.length) {
         list.innerHTML = '<div id="empty-msg">Aucune session enregistrée <span id="blink">_</span></div>';
         sc.textContent = '';
         return;
     }
+    const numbered = sessions.map((s, i) => ({ s, num: sessions.length - i }));
+    const filtered = query
+        ? numbered.filter(({ s, num }) => {
+            const q = query.replace(/^#/, '');
+            return String(num).includes(q)
+                || (s.name?.toLowerCase().includes(query) ?? false)
+                || (s.notes?.toLowerCase().includes(query) ?? false);
+        })
+        : numbered;
     sc.textContent = sessions.length + ' session(s) · ' + minsToHM(totalSAMin());
-    list.innerHTML = sessions.map((s, i) => {
+    if (!filtered.length) {
+        list.innerHTML = '<div id="empty-msg">Aucun vol ne correspond à la recherche.</div>';
+        return;
+    }
+    list.innerHTML = filtered.map(({ s, num }) => {
         const start = new Date(s.startTs);
         const end = new Date(s.endTs);
-        const num = sessions.length - i;
-        const notesBadge = s.notes ? `<div class="row s-note-badge">Commentaire du vol</div>` : '';
-        const notesPreview = '';
+        const nameLine = s.name ? `<div class="s-name">${escapeHtml(s.name)}</div>` : '';
+        const notesBadge = s.notes ? `<div class="row s-note-badge">Détail supplémentaire</div>` : '';
+        const aircraftRow = s.aircraft?.length ? `<div class="s-aircraft-row">${s.aircraft.map(a => `<span class="s-aircraft-tag">${escapeHtml(a)}</span>`).join('')}</div>` : '';
+        const missionRow = s.missionTypes?.length ? `<div class="s-aircraft-row">${s.missionTypes.map(t => `<span class="s-mission-tag" data-mission="${escapeHtml(t)}">${escapeHtml(t)}</span>`).join('')}</div>` : '';
         const notesFull = s.notes
             ? `<div class="s-notes-full">${escapeHtml(s.notes).replace(/\n/g, '<br>')}</div>`
             : `<div class="s-notes-empty">Aucune note pour ce vol.</div>`;
-        return `<div class="session-card" id="sc-${s.id}" onclick="toggleCard(${s.id})">
-      <div class="s-num">#${pad(num)}</div>
-      <div class="s-times">
-        <div class="row">Déb&nbsp;<span>${fmtDate(start)} ${pad(start.getHours())}:${pad(start.getMinutes())}</span></div>
-        <div class="row">Fin&nbsp;<span>${fmtDate(end)} ${pad(end.getHours())}:${pad(end.getMinutes())}</span></div>
-        ${notesBadge}
+        return `<div class="session-card" id="sc-${s.id}">
+      <div class="card-header" onclick="toggleCard(${s.id})">
+        <div class="s-num">#${pad(num)}</div>
+        <div class="s-times">
+          ${nameLine}
+          <div class="row">Déb&nbsp;<span>${fmtDate(start)} ${pad(start.getHours())}:${pad(start.getMinutes())}</span></div>
+          <div class="row">Fin&nbsp;<span>${fmtDate(end)} ${pad(end.getHours())}:${pad(end.getMinutes())}</span></div>
+          ${notesBadge}
+          ${missionRow}
+          ${aircraftRow}
+        </div>
+        <div class="s-dur">${durLabel(s.durationMin)}</div>
+        <button class="btn-icon" onclick="event.stopPropagation();toggleEdit(${s.id})" title="Éditer"><img src="./src/icons/pencil.png" width="16" height="16"></button>
+        <button class="btn-icon btn-icon-danger" onclick="event.stopPropagation();deleteSession(${s.id})" title="Supprimer"><img src="./src/icons/trash.png" width="16" height="16"></button>
       </div>
-      <div class="s-dur">${durLabel(s.durationMin)}</div>
-      <button class="btn-sm" onclick="event.stopPropagation();toggleEdit(${s.id})">Éditer</button>
-      <button class="btn-danger" onclick="event.stopPropagation();deleteSession(${s.id})">Supprimer</button>
-      ${notesPreview}
       <div class="s-details" id="details-${s.id}">
         ${notesFull}
       </div>
@@ -237,16 +358,24 @@ function renderSessions() {
             <div class="ef-group"><label>min</label><input type="number" id="em2-${s.id}" min="0" max="59" value="${end.getMinutes()}" oninput="updateEditResult(${s.id})"></div>
           </div>
         </div>
-        <div class="edit-result">
-          <span class="res-label">Durée calculée</span>
-          <span class="res-dur" id="res-dur-${s.id}">${durLabel(s.durationMin)}</span>
+        <div class="notes-group">
+          <label class="edit-block-label">Nom du vol</label>
+          <input type="text" id="ename-${s.id}" class="debrief-input" style="width:100%" placeholder="ex : Patrouille sur le Caucase" value="${escapeHtml(s.name || '')}">
         </div>
         <div class="notes-group">
-          <label class="edit-block-label">Notes du vol</label>
+          <label class="edit-block-label">Type(s) de mission</label>
+          <div class="mission-picker-wrap">${renderMissionPickerHtml(s.id, s.missionTypes ?? [])}</div>
+        </div>
+        <div class="notes-group">
+          <label class="edit-block-label">Appareil(s) volé(s)</label>
+          <div id="eaircraft-${s.id}" class="aircraft-picker-scroll">${renderAircraftPickerHtml(s.aircraft ?? [])}</div>
+        </div>
+        <div class="notes-group">
+          <label class="edit-block-label">Détail du vol</label>
           <textarea id="enotes-${s.id}" class="notes-textarea" placeholder="Commentaire..." oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'">${escapeHtml(s.notes || '')}</textarea>
         </div>
         <div class="edit-actions">
-          <button class="btn-sm" onclick="saveEdit(${s.id})">Valider</button>
+          <button class="btn-sm" onclick="saveEdit(${s.id})">Sauvegarder</button>
           <button class="btn-sm" onclick="cancelEdit(${s.id})">Annuler</button>
           <button class="btn-danger" onclick="deleteSession(${s.id})">Supprimer</button>
         </div>
@@ -305,7 +434,12 @@ async function saveEdit(id) {
     sessions[idx].startTs = res.start.getTime();
     sessions[idx].endTs = res.end.getTime();
     sessions[idx].durationMin = res.dur;
+    sessions[idx].name = document.getElementById('ename-' + id).value.trim() || undefined;
     sessions[idx].notes = document.getElementById('enotes-' + id).value.trim() || undefined;
+    const ac = Array.from(document.querySelectorAll(`#eaircraft-${id} .aircraft-toggle.selected`)).map(el => el.dataset.aircraft).filter(Boolean);
+    sessions[idx].aircraft = ac.length ? ac : undefined;
+    const mt = Array.from(document.querySelectorAll(`#emission-tags-${id} [data-mission]`)).map(el => el.dataset.mission).filter(Boolean);
+    sessions[idx].missionTypes = mt.length ? mt : undefined;
     renderSessions();
     updateTotal();
     await saveToFile();
@@ -314,6 +448,265 @@ async function deleteSession(id) {
     sessions = sessions.filter(s => s.id !== id);
     renderSessions();
     updateTotal();
+    await saveToFile();
+}
+// ─── Profil ────────────────────────────────────────────────────────────────
+function updateProfileBtn() {
+    const btn = document.getElementById('profile-btn');
+    if (btn)
+        btn.textContent = profile.name ? profile.name.charAt(0).toUpperCase() : '?';
+}
+function showProfile() {
+    document.getElementById('main').style.display = 'none';
+    document.getElementById('profile-page').style.display = 'flex';
+    document.getElementById('new-flight-page').style.display = 'none';
+    document.getElementById('nav-historique')?.classList.remove('active');
+    document.getElementById('nav-new-flight')?.classList.remove('active');
+    document.getElementById('profile-btn')?.classList.add('active');
+    renderProfileView();
+}
+function hideProfile() {
+    document.getElementById('main').style.display = '';
+    document.getElementById('profile-page').style.display = 'none';
+    document.getElementById('nav-historique')?.classList.add('active');
+    document.getElementById('profile-btn')?.classList.remove('active');
+}
+function showHistorique() {
+    document.getElementById('main').style.display = '';
+    document.getElementById('profile-page').style.display = 'none';
+    document.getElementById('new-flight-page').style.display = 'none';
+    document.getElementById('nav-historique')?.classList.add('active');
+    document.getElementById('nav-new-flight')?.classList.remove('active');
+    document.getElementById('burger-historique')?.classList.add('active');
+    document.getElementById('profile-btn')?.classList.remove('active');
+    closeBurger();
+}
+function showNewFlight() {
+    document.getElementById('main').style.display = 'none';
+    document.getElementById('profile-page').style.display = 'none';
+    document.getElementById('new-flight-page').style.display = 'flex';
+    document.getElementById('nav-historique')?.classList.remove('active');
+    document.getElementById('nav-new-flight')?.classList.add('active');
+    document.getElementById('profile-btn')?.classList.remove('active');
+    const today = fmtDateInput(new Date());
+    document.getElementById('nf-date1').value = today;
+    document.getElementById('nf-date2').value = today;
+    document.getElementById('nf-h1').value = '0';
+    document.getElementById('nf-m1').value = '0';
+    document.getElementById('nf-h2').value = '0';
+    document.getElementById('nf-m2').value = '0';
+    document.getElementById('nf-name').value = '';
+    document.getElementById('nf-notes').value = '';
+    const mwrap = document.getElementById('nf-mission-picker-wrap');
+    if (mwrap)
+        mwrap.innerHTML = renderMissionPickerHtml(-1, []);
+    const apicker = document.getElementById('nf-aircraft-picker');
+    if (apicker)
+        apicker.innerHTML = renderAircraftPickerHtml([]);
+    updateNewFlightResult();
+}
+function updateNewFlightResult() {
+    const d1 = document.getElementById('nf-date1').value;
+    const d2 = document.getElementById('nf-date2').value;
+    const h1 = parseInt(document.getElementById('nf-h1').value) || 0;
+    const m1 = parseInt(document.getElementById('nf-m1').value) || 0;
+    const h2 = parseInt(document.getElementById('nf-h2').value) || 0;
+    const m2 = parseInt(document.getElementById('nf-m2').value) || 0;
+    const el = document.getElementById('nf-duration');
+    if (!el)
+        return;
+    if (!d1 || !d2) {
+        el.textContent = '—';
+        return;
+    }
+    const start = new Date(`${d1}T${pad(h1)}:${pad(m1)}:00`);
+    const end = new Date(`${d2}T${pad(h2)}:${pad(m2)}:00`);
+    const dur = Math.round((end.getTime() - start.getTime()) / 60000);
+    el.textContent = dur > 0 ? durLabel(dur) : '—';
+}
+async function saveNewFlight() {
+    const d1 = document.getElementById('nf-date1').value;
+    const d2 = document.getElementById('nf-date2').value;
+    if (!d1 || !d2)
+        return;
+    const h1 = parseInt(document.getElementById('nf-h1').value) || 0;
+    const m1 = parseInt(document.getElementById('nf-m1').value) || 0;
+    const h2 = parseInt(document.getElementById('nf-h2').value) || 0;
+    const m2 = parseInt(document.getElementById('nf-m2').value) || 0;
+    const start = new Date(`${d1}T${pad(h1)}:${pad(m1)}:00`);
+    const end = new Date(`${d2}T${pad(h2)}:${pad(m2)}:00`);
+    const dur = Math.round((end.getTime() - start.getTime()) / 60000);
+    if (dur <= 0)
+        return;
+    const name = document.getElementById('nf-name').value.trim() || undefined;
+    const notes = document.getElementById('nf-notes').value.trim() || undefined;
+    const ac = Array.from(document.querySelectorAll('#nf-aircraft-picker .aircraft-toggle.selected')).map(el => el.dataset.aircraft).filter(Boolean);
+    const mt = Array.from(document.querySelectorAll('#emission-tags--1 [data-mission]')).map(el => el.dataset.mission).filter(Boolean);
+    const s = {
+        id: Date.now(),
+        startTs: start.getTime(),
+        endTs: end.getTime(),
+        durationMin: dur,
+        name,
+        notes,
+        aircraft: ac.length ? ac : undefined,
+        missionTypes: mt.length ? mt : undefined,
+    };
+    sessions.unshift(s);
+    renderSessions();
+    updateTotal();
+    await saveToFile();
+    showNewFlight();
+    const msg = document.getElementById('nf-save-msg');
+    if (msg) {
+        msg.style.opacity = '1';
+        setTimeout(() => msg.style.opacity = '0', 1500);
+    }
+}
+function toggleBurger() {
+    document.getElementById('burger-menu')?.classList.toggle('open');
+    syncBurgerState();
+}
+function closeBurger() {
+    document.getElementById('burger-menu')?.classList.remove('open');
+}
+function syncBurgerState() {
+    const siLabel = document.getElementById('si-label')?.textContent ?? '';
+    const siTime = document.getElementById('si-time')?.textContent ?? '';
+    const siElapsed = document.getElementById('si-elapsed')?.textContent ?? '';
+    const btnText = document.getElementById('btn-toggle')?.textContent ?? '';
+    const bLabel = document.getElementById('burger-si-label');
+    const bTime = document.getElementById('burger-si-time');
+    const bElap = document.getElementById('burger-si-elapsed');
+    const bBtn = document.getElementById('burger-btn-toggle');
+    if (bLabel)
+        bLabel.textContent = siLabel;
+    if (bTime)
+        bTime.textContent = siTime;
+    if (bElap)
+        bElap.textContent = siElapsed;
+    if (bBtn)
+        bBtn.textContent = btnText;
+    const active = document.getElementById('btn-toggle')?.classList.contains('active');
+    if (active)
+        bBtn?.classList.add('active');
+    else
+        bBtn?.classList.remove('active');
+}
+function syncBurgerSearch() {
+    const val = document.getElementById('burger-search').value;
+    document.getElementById('search-input').value = val;
+    renderSessions();
+}
+function getEffectiveOwnedModuleNames() {
+    const owned = new Set(profile.modules);
+    DCS_MODULES.forEach(mod => {
+        if (owned.has(mod.name) && mod.includes)
+            mod.includes.forEach(inc => owned.add(inc));
+    });
+    return owned;
+}
+function missionTagHtml(id, t) {
+    return `<span class="mission-tag" data-mission="${escapeHtml(t)}">${escapeHtml(t)}<button type="button" class="mission-tag-remove" onclick="removeMissionType(${id},'${escapeHtml(t)}')"><img src="./src/icons/close.png" alt="×"></button></span>`;
+}
+function renderMissionPickerHtml(id, selected) {
+    const tags = selected.map(t => missionTagHtml(id, t)).join('');
+    const chips = MISSION_TYPES.map(t => {
+        const sel = selected.includes(t);
+        return `<button type="button" class="mission-chip${sel ? ' selected' : ''}" onclick="toggleMissionType(${id},'${escapeHtml(t)}')" data-mission="${escapeHtml(t)}">${escapeHtml(t)}</button>`;
+    }).join('');
+    return `
+    <div class="mission-picker-row">
+      <div class="mission-tags-row" id="emission-tags-${id}">${tags}</div>
+      <button type="button" class="mission-add-btn" onclick="toggleMissionPanel(${id})">+</button>
+    </div>
+    <div class="mission-panel" id="emission-panel-${id}">${chips}</div>`;
+}
+function toggleMissionPanel(id) {
+    document.getElementById(`emission-panel-${id}`)?.classList.toggle('open');
+}
+function toggleMissionType(id, type) {
+    const chip = document.querySelector(`#emission-panel-${id} [data-mission="${type}"]`);
+    if (!chip)
+        return;
+    const adding = !chip.classList.contains('selected');
+    chip.classList.toggle('selected');
+    const tagsRow = document.getElementById(`emission-tags-${id}`);
+    if (!tagsRow)
+        return;
+    if (adding) {
+        tagsRow.insertAdjacentHTML('beforeend', missionTagHtml(id, type));
+    }
+    else {
+        tagsRow.querySelector(`[data-mission="${type}"]`)?.remove();
+    }
+}
+function removeMissionType(id, type) {
+    document.getElementById(`emission-tags-${id}`)?.querySelector(`[data-mission="${type}"]`)?.remove();
+    const chip = document.querySelector(`#emission-panel-${id} [data-mission="${type}"]`);
+    chip?.classList.remove('selected');
+}
+function renderAircraftPickerHtml(selected) {
+    if (!profile.modules.length)
+        return `<span class="pf-empty">Aucun module configuré dans le profil.</span>`;
+    const ownedMods = DCS_MODULES.filter(mod => getEffectiveOwnedModuleNames().has(mod.name));
+    const modelsSet = new Set();
+    ownedMods.forEach(mod => (mod.variants ?? [mod.name]).forEach(m => modelsSet.add(m)));
+    return Array.from(modelsSet).sort().map(model => {
+        const sel = selected.includes(model);
+        return `<button type="button" class="aircraft-toggle${sel ? ' selected' : ''}" onclick="this.classList.toggle('selected')" data-aircraft="${escapeHtml(model)}">${escapeHtml(model)}<img class="aircraft-toggle-close" src="./src/icons/close.png" alt="×"></button>`;
+    }).join('');
+}
+function renderProfileView() {
+    const content = document.getElementById('pf-content');
+    const initial = profile.name ? profile.name.charAt(0).toUpperCase() : '?';
+    const tags = profile.modules.length
+        ? profile.modules.map(m => `<span class="pf-module-tag">${escapeHtml(m)}</span>`).join('')
+        : `<span class="pf-empty">Aucun module sélectionné</span>`;
+    content.innerHTML = `
+    <div class="pf-view">
+      <div class="pf-avatar-section">
+        <div class="pf-avatar-lg">${initial}</div>
+        <div class="pf-pilot-name">${profile.name ? escapeHtml(profile.name) : '<span class="pf-empty">Nom non défini</span>'}</div>
+        <button class="btn-sm" onclick="editProfile()">Éditer le profil</button>
+      </div>
+      <div class="pf-section">
+        <div class="pf-section-title">Modules DCS possédés (${profile.modules.length})</div>
+        <div class="pf-modules-display">${tags}</div>
+      </div>
+    </div>`;
+}
+function editProfile() {
+    const content = document.getElementById('pf-content');
+    const grid = DCS_MODULES.map(mod => {
+        const sel = profile.modules.includes(mod.name);
+        return `<button type="button" class="pf-module-toggle${sel ? ' selected' : ''}" onclick="this.classList.toggle('selected')" data-module="${escapeHtml(mod.name)}">${escapeHtml(mod.name)}</button>`;
+    }).join('');
+    content.innerHTML = `
+    <div class="pf-edit">
+      <div class="pf-field">
+        <label class="pf-label">Nom du pilote</label>
+        <input type="text" id="pf-name-input" class="pf-input" value="${escapeHtml(profile.name)}" placeholder="">
+      </div>
+      <div class="pf-field">
+        <label class="pf-label">Modules DCS possédés</label>
+        <div class="pf-modules-grid">${grid}</div>
+      </div>
+      <div class="pf-edit-actions">
+        <button class="btn" onclick="saveProfile()">Sauvegarder</button>
+        <button class="btn-sm" onclick="cancelEditProfile()">Annuler</button>
+      </div>
+    </div>`;
+}
+function cancelEditProfile() { renderProfileView(); }
+async function saveProfile() {
+    const name = document.getElementById('pf-name-input').value.trim();
+    const modules = Array.from(document.querySelectorAll('.pf-module-toggle.selected'))
+        .map(el => el.dataset.module).filter(Boolean);
+    profile = { name, modules };
+    updateProfileBtn();
+    renderProfileView();
+    renderSessions();
     await saveToFile();
 }
 // ─── Indicateur de sauvegarde ──────────────────────────────────────────────
@@ -331,12 +724,31 @@ window.saveEdit = saveEdit;
 window.deleteSession = deleteSession;
 window.updateEditResult = updateEditResult;
 window.toggleCard = toggleCard;
+window.confirmDebrief = confirmDebrief;
+window.skipDebrief = skipDebrief;
+window.filterSessions = renderSessions;
+window.showProfile = showProfile;
+window.showHistorique = showHistorique;
+window.showNewFlight = showNewFlight;
+window.updateNewFlightResult = updateNewFlightResult;
+window.saveNewFlight = saveNewFlight;
+window.toggleBurger = toggleBurger;
+window.toggleMissionPanel = toggleMissionPanel;
+window.toggleMissionType = toggleMissionType;
+window.removeMissionType = removeMissionType;
+window.closeBurger = closeBurger;
+window.syncBurgerSearch = syncBurgerSearch;
+window.hideProfile = hideProfile;
+window.editProfile = editProfile;
+window.cancelEditProfile = cancelEditProfile;
+window.saveProfile = saveProfile;
 window.tbMinimize = () => getCurrentWindow().minimize();
 window.tbMaximize = () => getCurrentWindow().toggleMaximize();
 window.tbClose = () => getCurrentWindow().close();
 // ─── Démarrage ─────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
     await loadFromFile();
+    updateProfileBtn();
     updateSteamDisplay();
     updateTotal();
     renderSessions();
