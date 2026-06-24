@@ -457,7 +457,7 @@ function renderSessions(): void {
           <textarea id="enotes-${s.id}" class="notes-textarea" placeholder="Commentaire..." oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'">${escapeHtml(s.notes || '')}</textarea>
         </div>
         <div class="edit-actions">
-          <button class="btn-sm" onclick="saveEdit(${s.id})">Valider</button>
+          <button class="btn-sm" onclick="saveEdit(${s.id})">Sauvegarder</button>
           <button class="btn-sm" onclick="cancelEdit(${s.id})">Annuler</button>
           <button class="btn-danger" onclick="deleteSession(${s.id})">Supprimer</button>
         </div>
