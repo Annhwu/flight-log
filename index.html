@@ -172,11 +172,20 @@
       </div>
     </div>
   </div>
+  <div id="pf-confirm-overlay" style="display:none">
+    <div id="st-confirm-modal">
+      <div id="pf-confirm-msg"></div>
+      <div class="st-confirm-actions">
+        <button class="btn-sm" onclick="confirmProfileLeave(true)">Sauvegarder</button>
+        <button class="btn-sm" onclick="confirmProfileLeave(false)">Ne pas sauvegarder</button>
+      </div>
+    </div>
+  </div>
   <div id="st-confirm-overlay" style="display:none">
     <div id="st-confirm-modal">
       <div id="st-confirm-msg"></div>
       <div class="st-confirm-actions">
-        <button class="btn" onclick="confirmSettingsLeave(true)">Sauvegarder</button>
+        <button class="btn-sm" onclick="confirmSettingsLeave(true)">Sauvegarder</button>
         <button class="btn-sm" onclick="confirmSettingsLeave(false)">Ne pas sauvegarder</button>
       </div>
     </div>

@@ -66,7 +66,6 @@ let elapsedInterval = null;
 let pendingSession = null;
 let profile = { name: '', modules: [] };
 let settingsDirty = false;
-let pendingNav = null;
 // ─── Utilitaires ───────────────────────────────────────────────────────────
 function pad(n) { return String(n).padStart(2, '0'); }
 function escapeHtml(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
@@ -528,7 +527,7 @@ function getSettingsChanges() {
         changes.push(`"Remplacer mon profil lors d'un import JSON" → ${imp ? 'activé' : 'désactivé'}`);
     return changes;
 }
-function checkSettingsDirty(nav) {
+function checkSettingsDirty(_nav) {
     if (!settingsDirty || document.getElementById('settings-page').style.display === 'none')
         return false;
     const changes = getSettingsChanges();
@@ -545,7 +544,6 @@ function confirmSettingsLeave(save) {
         saveSettings();
     else
         cancelSettings();
-    pendingNav = null;
 }
 function toggleSection(titleEl) {
     titleEl.closest('.st-section')?.classList.toggle('collapsed');
