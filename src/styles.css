@@ -93,7 +93,7 @@ body{background:var(--bg);height:100vh;display:flex;flex-direction:column;margin
 .btn-icon{font-size:15px;width:30px;height:30px;border-radius:6px;border:1.5px solid var(--border);background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.15s,border-color 0.15s;flex-shrink:0;}
 .btn-icon:hover{background:#4a3d32;border-color:#4a3d32;}
 .btn-icon-danger{border-color:#c9a8a8;}
-.btn-icon-danger:hover{background:#8a2020;border-color:#8a2020;}
+.btn-icon-danger:hover{background:#b50000;border-color:#b50000;}
 
 /* ── Historique ── */
 hr{border:none;border-top:1.5px solid var(--border);margin:12px 0;flex-shrink:0;}
@@ -178,10 +178,39 @@ hr{border:none;border-top:1.5px solid var(--border);margin:12px 0;flex-shrink:0;
 .aircraft-picker-scroll{display:flex;flex-wrap:wrap;gap:6px;max-height:130px;overflow-y:auto;padding:4px 0;}
 .aircraft-group{display:flex;flex-wrap:wrap;align-items:center;gap:6px;width:100%;}
 .aircraft-group-label{font-size:11px;color:var(--ink3);font-weight:500;min-width:90px;flex-shrink:0;}
-.aircraft-toggle{font-family:'Inter',sans-serif;font-size:12px;padding:3px 9px;border-radius:20px;border:1.5px solid var(--border);background:#fff;color:var(--ink);cursor:pointer;transition:all 0.1s;}
+.aircraft-toggle{font-family:'Inter',sans-serif;font-size:12px;padding:3px 9px;border-radius:20px;border:1.5px solid var(--border);background:#fff;color:var(--ink);cursor:pointer;transition:all 0.1s;display:inline-flex;align-items:center;gap:4px;}
 .aircraft-toggle.selected{background:#4a3d32;border-color:#4a3d32;color:#fff;}
+.aircraft-toggle-close{width:12px;height:12px;display:none;opacity:0.7;filter:invert(1);}
+.aircraft-toggle.selected .aircraft-toggle-close{display:inline;}
 .s-aircraft-row{display:flex;flex-wrap:wrap;gap:4px;margin-top:3px;}
 .s-aircraft-tag{font-size:11px;padding:2px 7px;border-radius:12px;background:#4a3d32;color:#d6cfc4;}
+.s-mission-tag{font-size:11px;padding:2px 7px;border-radius:12px;background:#2a3d4a;color:#c4d0d6;}
+
+/* ── Mission picker ── */
+.mission-picker-wrap{display:flex;flex-direction:column;gap:6px;}
+.mission-picker-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.mission-tags-row{display:flex;flex-wrap:wrap;gap:4px;}
+.mission-add-btn{width:28px;height:28px;border-radius:8px;border:1.5px dashed var(--border);background:transparent;color:var(--ink3);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.15s;line-height:1;}
+.mission-add-btn:hover{border-color:#2a3d4a;color:#2a3d4a;background:var(--bg3);}
+.mission-panel{display:none;flex-wrap:wrap;gap:6px;padding:6px 0;}
+.mission-panel.open{display:flex;}
+.mission-chip{font-family:'Inter',sans-serif;font-size:12px;padding:3px 10px;border-radius:20px;border:1.5px solid var(--border);background:#fff;color:var(--ink);cursor:pointer;transition:all 0.15s;opacity:0.45;}
+.mission-chip:hover{opacity:0.75;}
+.mission-chip.selected{opacity:1;}
+.mission-tag{font-size:11px;padding:2px 6px 2px 8px;border-radius:12px;background:#2a3d4a;color:#c4d0d6;display:inline-flex;align-items:center;gap:3px;}
+.mission-tag-remove{background:none;border:none;padding:0;cursor:pointer;display:inline-flex;align-items:center;opacity:0.7;}
+.mission-tag-remove img{width:10px;height:10px;filter:invert(1);}
+.mission-tag-remove:hover{opacity:1;}
+
+/* ── Mission colors ── */
+.mission-chip[data-mission="Training"],.mission-tag[data-mission="Training"],.s-mission-tag[data-mission="Training"]{background:#137f11;border-color:#137f11;color:#ffffff;}
+.mission-chip[data-mission="SEAD"],.mission-tag[data-mission="SEAD"],.s-mission-tag[data-mission="SEAD"]{background:#a30000;border-color:#a30000;color:#fff;}
+.mission-chip[data-mission="Anti-Ship"],.mission-tag[data-mission="Anti-Ship"],.s-mission-tag[data-mission="Anti-Ship"]{background:#08719e;border-color:#08719e;color:#fff;}
+.mission-chip[data-mission="CAP"],.mission-tag[data-mission="CAP"],.s-mission-tag[data-mission="CAP"]{background:#7c7c7c;border-color:#7c7c7c;color:#ffffff;}
+.mission-chip[data-mission="CAS"],.mission-tag[data-mission="CAS"],.s-mission-tag[data-mission="CAS"]{background:#bfb058;border-color:#bfb058;color:#ffffff;}
+.mission-chip[data-mission="Recon"],.mission-tag[data-mission="Recon"],.s-mission-tag[data-mission="Recon"]{background:#165f23;border-color:#165f23;color:#ffffff;}
+.mission-chip[data-mission="Strike"],.mission-tag[data-mission="Strike"],.s-mission-tag[data-mission="Strike"]{background:#181818;border-color:#181818;color:#ffffff;}
+.mission-chip[data-mission="Intercept"],.mission-tag[data-mission="Intercept"],.s-mission-tag[data-mission="Intercept"]{background:#ad5811;border-color:#ad5811;color:#ffffff;}
 
 /* ── Débrief modal ── */
 #debrief-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:none;align-items:center;justify-content:center;z-index:100;}
