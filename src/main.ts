@@ -409,8 +409,8 @@ function renderSessions(): void {
           ${aircraftRow}
         </div>
         <div class="s-dur">${durLabel(s.durationMin)}</div>
-        <button class="btn-sm" onclick="event.stopPropagation();toggleEdit(${s.id})">Éditer</button>
-        <button class="btn-danger" onclick="event.stopPropagation();deleteSession(${s.id})">Supprimer</button>
+        <button class="btn-icon" onclick="event.stopPropagation();toggleEdit(${s.id})" title="Éditer"><img src="./src/icons/pencil.png" width="16" height="16"></button>
+        <button class="btn-icon btn-icon-danger" onclick="event.stopPropagation();deleteSession(${s.id})" title="Supprimer"><img src="./src/icons/trash.png" width="16" height="16"></button>
       </div>
       <div class="s-details" id="details-${s.id}">
         ${notesFull}

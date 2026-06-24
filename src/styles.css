@@ -65,6 +65,10 @@ body{background:var(--bg);height:100vh;display:flex;flex-direction:column;margin
 .btn-sm:hover{background:#4a3d32;color:#fff;}
 .btn-danger{font-family:'Inter',sans-serif;font-size:12px;border:1.5px solid #8a2020;background:#fff;color:#8a2020;padding:5px 12px;border-radius:6px;cursor:pointer;margin-left:auto;}
 .btn-danger:hover{background:#8a2020;color:#fff;}
+.btn-icon{font-size:15px;width:30px;height:30px;border-radius:6px;border:1.5px solid var(--border);background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.15s,border-color 0.15s;flex-shrink:0;}
+.btn-icon:hover{background:#4a3d32;border-color:#4a3d32;}
+.btn-icon-danger{border-color:#c9a8a8;}
+.btn-icon-danger:hover{background:#8a2020;border-color:#8a2020;}
 
 /* ── Historique ── */
 hr{border:none;border-top:1.5px solid var(--border);margin:12px 0;flex-shrink:0;}
