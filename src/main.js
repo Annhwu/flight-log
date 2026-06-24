@@ -65,6 +65,8 @@ let activeStart = null;
 let elapsedInterval = null;
 let pendingSession = null;
 let profile = { name: '', modules: [] };
+let settingsDirty = false;
+let pendingNav = null;
 // ─── Utilitaires ───────────────────────────────────────────────────────────
 function pad(n) { return String(n).padStart(2, '0'); }
 function escapeHtml(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
@@ -103,7 +105,7 @@ function showSaveIndicator() {
 }
 // ─── Export / Import ────────────────────────────────────────────────────────
 async function exportJSON() {
-    const data = { steamMinutes, sessions };
+    const data = { steamMinutes, sessions, ...(profile.exportProfile ? { profile } : {}) };
     const json = JSON.stringify(data, null, 2);
     const options = {
         defaultPath: 'export_dcs_flight_log.json',
@@ -128,6 +130,10 @@ function loadFile(event) {
             const data = JSON.parse(e.target.result);
             steamMinutes = data.steamMinutes ?? 0;
             sessions = data.sessions ?? [];
+            if (data.profile && profile.importProfile) {
+                profile = { ...data.profile, importProfile: profile.importProfile, exportProfile: profile.exportProfile };
+                updateProfileBtn();
+            }
             await saveToFile();
             updateSteamDisplay();
             updateTotal();
@@ -333,8 +339,8 @@ function renderSessions() {
           ${aircraftRow}
         </div>
         <div class="s-dur">${durLabel(s.durationMin)}</div>
-        <button class="btn-icon" onclick="event.stopPropagation();toggleEdit(${s.id})" title="Éditer"><img src="./src/icons/pencil.png" width="16" height="16"></button>
-        <button class="btn-icon btn-icon-danger" onclick="event.stopPropagation();deleteSession(${s.id})" title="Supprimer"><img src="./src/icons/trash.png" width="16" height="16"></button>
+        <button class="btn-icon" onclick="event.stopPropagation();toggleEdit(${s.id})" title="Éditer"><img src="./icons/pencil.png" width="16" height="16"></button>
+        <button class="btn-icon btn-icon-danger" onclick="event.stopPropagation();deleteSession(${s.id})" title="Supprimer"><img src="./icons/trash.png" width="16" height="16"></button>
       </div>
       <div class="s-details" id="details-${s.id}">
         ${notesFull}
@@ -456,38 +462,100 @@ function updateProfileBtn() {
     if (btn)
         btn.textContent = profile.name ? profile.name.charAt(0).toUpperCase() : '?';
 }
-function showProfile() {
+function hidAllPages() {
     document.getElementById('main').style.display = 'none';
-    document.getElementById('profile-page').style.display = 'flex';
+    document.getElementById('profile-page').style.display = 'none';
     document.getElementById('new-flight-page').style.display = 'none';
-    document.getElementById('nav-historique')?.classList.remove('active');
-    document.getElementById('nav-new-flight')?.classList.remove('active');
+    document.getElementById('settings-page').style.display = 'none';
+    ['nav-historique', 'nav-new-flight', 'nav-settings'].forEach(id => document.getElementById(id)?.classList.remove('active'));
+    document.getElementById('profile-btn')?.classList.remove('active');
+}
+function showProfile() {
+    if (checkSettingsDirty(() => showProfile()))
+        return;
+    hidAllPages();
+    document.getElementById('profile-page').style.display = 'flex';
     document.getElementById('profile-btn')?.classList.add('active');
     renderProfileView();
 }
 function hideProfile() {
-    document.getElementById('main').style.display = '';
-    document.getElementById('profile-page').style.display = 'none';
-    document.getElementById('nav-historique')?.classList.add('active');
-    document.getElementById('profile-btn')?.classList.remove('active');
+    showHistorique();
 }
 function showHistorique() {
+    if (checkSettingsDirty(() => showHistorique()))
+        return;
+    hidAllPages();
     document.getElementById('main').style.display = '';
-    document.getElementById('profile-page').style.display = 'none';
-    document.getElementById('new-flight-page').style.display = 'none';
     document.getElementById('nav-historique')?.classList.add('active');
-    document.getElementById('nav-new-flight')?.classList.remove('active');
     document.getElementById('burger-historique')?.classList.add('active');
-    document.getElementById('profile-btn')?.classList.remove('active');
     closeBurger();
 }
+function showSettings() {
+    if (checkSettingsDirty(() => showSettings()))
+        return;
+    hidAllPages();
+    document.getElementById('settings-page').style.display = 'flex';
+    document.getElementById('nav-settings')?.classList.add('active');
+    const expCb = document.getElementById('st-export-profile');
+    const impCb = document.getElementById('st-import-profile');
+    if (expCb)
+        expCb.checked = !!profile.exportProfile;
+    if (impCb)
+        impCb.checked = !!profile.importProfile;
+    settingsDirty = false;
+}
+function onSettingChange() {
+    settingsDirty = true;
+}
+function saveSettings() {
+    profile.exportProfile = document.getElementById('st-export-profile').checked;
+    profile.importProfile = document.getElementById('st-import-profile').checked;
+    settingsDirty = false;
+    saveToFile();
+}
+function cancelSettings() {
+    document.getElementById('st-export-profile').checked = !!profile.exportProfile;
+    document.getElementById('st-import-profile').checked = !!profile.importProfile;
+    settingsDirty = false;
+}
+function getSettingsChanges() {
+    const changes = [];
+    const exp = document.getElementById('st-export-profile')?.checked;
+    const imp = document.getElementById('st-import-profile')?.checked;
+    if (exp !== !!profile.exportProfile)
+        changes.push(`"Inclure le profil dans l'export JSON" → ${exp ? 'activé' : 'désactivé'}`);
+    if (imp !== !!profile.importProfile)
+        changes.push(`"Remplacer mon profil lors d'un import JSON" → ${imp ? 'activé' : 'désactivé'}`);
+    return changes;
+}
+function checkSettingsDirty(nav) {
+    if (!settingsDirty || document.getElementById('settings-page').style.display === 'none')
+        return false;
+    const changes = getSettingsChanges();
+    const msg = document.getElementById('st-confirm-msg');
+    msg.innerHTML = changes.length
+        ? `Vous avez modifié :<br><b>${changes.join('<br>')}</b><br><br>Voulez-vous sauvegarder ces changements ?`
+        : `Vous avez des modifications non sauvegardées.<br>Voulez-vous les sauvegarder ?`;
+    document.getElementById('st-confirm-overlay').style.display = 'flex';
+    return true;
+}
+function confirmSettingsLeave(save) {
+    document.getElementById('st-confirm-overlay').style.display = 'none';
+    if (save)
+        saveSettings();
+    else
+        cancelSettings();
+    pendingNav = null;
+}
+function toggleSection(titleEl) {
+    titleEl.closest('.st-section')?.classList.toggle('collapsed');
+}
 function showNewFlight() {
-    document.getElementById('main').style.display = 'none';
-    document.getElementById('profile-page').style.display = 'none';
+    if (checkSettingsDirty(() => showNewFlight()))
+        return;
+    hidAllPages();
     document.getElementById('new-flight-page').style.display = 'flex';
-    document.getElementById('nav-historique')?.classList.remove('active');
     document.getElementById('nav-new-flight')?.classList.add('active');
-    document.getElementById('profile-btn')?.classList.remove('active');
     const today = fmtDateInput(new Date());
     document.getElementById('nf-date1').value = today;
     document.getElementById('nf-date2').value = today;
@@ -607,7 +675,7 @@ function getEffectiveOwnedModuleNames() {
     return owned;
 }
 function missionTagHtml(id, t) {
-    return `<span class="mission-tag" data-mission="${escapeHtml(t)}">${escapeHtml(t)}<button type="button" class="mission-tag-remove" onclick="removeMissionType(${id},'${escapeHtml(t)}')"><img src="./src/icons/close.png" alt="×"></button></span>`;
+    return `<span class="mission-tag" data-mission="${escapeHtml(t)}">${escapeHtml(t)}<button type="button" class="mission-tag-remove" onclick="removeMissionType(${id},'${escapeHtml(t)}')"><img src="./icons/close.png" alt="×"></button></span>`;
 }
 function renderMissionPickerHtml(id, selected) {
     const tags = selected.map(t => missionTagHtml(id, t)).join('');
@@ -654,7 +722,7 @@ function renderAircraftPickerHtml(selected) {
     ownedMods.forEach(mod => (mod.variants ?? [mod.name]).forEach(m => modelsSet.add(m)));
     return Array.from(modelsSet).sort().map(model => {
         const sel = selected.includes(model);
-        return `<button type="button" class="aircraft-toggle${sel ? ' selected' : ''}" onclick="this.classList.toggle('selected')" data-aircraft="${escapeHtml(model)}">${escapeHtml(model)}<img class="aircraft-toggle-close" src="./src/icons/close.png" alt="×"></button>`;
+        return `<button type="button" class="aircraft-toggle${sel ? ' selected' : ''}" onclick="this.classList.toggle('selected')" data-aircraft="${escapeHtml(model)}">${escapeHtml(model)}<img class="aircraft-toggle-close" src="./icons/close.png" alt="×"></button>`;
     }).join('');
 }
 function renderProfileView() {
@@ -703,7 +771,7 @@ async function saveProfile() {
     const name = document.getElementById('pf-name-input').value.trim();
     const modules = Array.from(document.querySelectorAll('.pf-module-toggle.selected'))
         .map(el => el.dataset.module).filter(Boolean);
-    profile = { name, modules };
+    profile = { ...profile, name, modules };
     updateProfileBtn();
     renderProfileView();
     renderSessions();
@@ -732,6 +800,12 @@ window.showHistorique = showHistorique;
 window.showNewFlight = showNewFlight;
 window.updateNewFlightResult = updateNewFlightResult;
 window.saveNewFlight = saveNewFlight;
+window.showSettings = showSettings;
+window.saveSettings = saveSettings;
+window.cancelSettings = cancelSettings;
+window.onSettingChange = onSettingChange;
+window.confirmSettingsLeave = confirmSettingsLeave;
+window.toggleSection = toggleSection;
 window.toggleBurger = toggleBurger;
 window.toggleMissionPanel = toggleMissionPanel;
 window.toggleMissionType = toggleMissionType;
