@@ -494,7 +494,7 @@ function renderSessions(): void {
         </div>
         <div class="notes-group">
           <label class="edit-block-label">Détail du vol</label>
-          <textarea id="enotes-${s.id}" class="notes-textarea" placeholder="Commentaire..." oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'">${escapeHtml(s.notes || '')}</textarea>
+          <textarea id="enotes-${s.id}" class="notes-textarea" placeholder="Commentaire.." oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'">${escapeHtml(s.notes || '')}</textarea>
         </div>
         <div class="edit-actions">
           <button class="btn-sm" onclick="saveEdit(${s.id})">Sauvegarder</button>
