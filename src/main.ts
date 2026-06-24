@@ -234,6 +234,12 @@ async function loadFromFile(): Promise<void> {
   }
 }
 
+document.addEventListener('contextmenu', (e) => {
+  const target = e.target as HTMLElement;
+  const isText = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+  if (!isText) e.preventDefault();
+});
+
 let _lastBtnRect: DOMRect | null = null;
 document.addEventListener('click', (e) => {
   const btn = (e.target as HTMLElement).closest('button, label[class*="btn"]') as HTMLElement | null;
@@ -1094,6 +1100,7 @@ function editProfile(): void {
       </div>
       <div class="pf-field">
         <label class="pf-label">${t('profile_modules')}</label>
+        <input type="text" id="pf-module-search" class="pf-input" placeholder="${t('profile_module_search')}" oninput="filterModules()">
         <div class="pf-modules-grid">${grid}</div>
       </div>
       <div class="pf-edit-actions">
@@ -1141,6 +1148,14 @@ function removeAvatar(): void {
   if (preview) preview.innerHTML = avatarHtml(nameVal, undefined, 72);
   const wrap = document.getElementById('pf-avatar-remove-wrap');
   if (wrap) wrap.innerHTML = '';
+}
+
+function filterModules(): void {
+  const query = (document.getElementById('pf-module-search') as HTMLInputElement).value.toLowerCase().trim();
+  document.querySelectorAll<HTMLElement>('.pf-module-toggle').forEach(btn => {
+    const name = (btn.dataset.module || '').toLowerCase();
+    btn.style.display = !query || name.includes(query) ? '' : 'none';
+  });
 }
 
 function cancelEditProfile(): void { profileEditing = false; pendingAvatarChange = undefined; renderProfileView(); }
@@ -1231,6 +1246,7 @@ window.hideProfile = hideProfile;
 window.editProfile = editProfile;
 window.cancelEditProfile = cancelEditProfile;
 window.saveProfile = saveProfile;
+(window as any).filterModules = filterModules;
 (window as any).uploadAvatar = uploadAvatar;
 (window as any).removeAvatar = removeAvatar;
 (window as any).setLanguage = setLanguage;
