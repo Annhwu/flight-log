@@ -8,7 +8,7 @@
   "session_active": "Session in progress",
   "session_start": "▶ ON",
   "session_stop": "■ OFF",
-  "search_hint": "Search by name, #number or description…",
+  "search_hint": "Search a flight by name, #number or description...",
   "search_placeholder": "Search…",
   "history_title": "History",
   "history_empty": "No sessions recorded",
@@ -59,7 +59,7 @@
   "profile_choose_image": "Choose image",
   "profile_image_hint": "512 × 512 px recommended (square)",
   "profile_delete_photo": "Delete photo",
-  "profile_pilot_name": "Pilot name",
+  "profile_pilot_name": "Name",
   "profile_module_search": "Search a module...",
   "profile_modules": "DCS modules owned",
   "profile_modules_count": "DCS modules owned ({{count}})",
@@ -76,6 +76,9 @@
   "settings_save": "Save",
   "settings_cancel": "Cancel",
   "settings_language": "Language",
+  "settings_theme": "Theme",
+  "theme_light": "Light",
+  "theme_dark": "Dark",
   "debrief_name": "Name",
   "debrief_name_ph": "Name",
   "debrief_aircraft": "Aircraft flown",
@@ -113,5 +116,8 @@
   "change_missions": "Mission type(s): {{list}}",
   "change_aircraft": "Aircraft: {{list}}",
   "error_invalid_json": "Invalid JSON file.",
-  "save_indicator": "✓ Saved"
+  "save_indicator": "✓ Saved",
+  "ctx_cut": "Cut",
+  "ctx_copy": "Copy",
+  "ctx_paste": "Paste"
 }

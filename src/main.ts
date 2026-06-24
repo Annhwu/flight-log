@@ -2,6 +2,7 @@
 export { };
 
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { initI18n, t, setLang, getLocale, applyStaticTranslations } from './i18n';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -152,6 +153,7 @@ let elapsedInterval: number | null = null;
 let pendingSession: Session | null = null;
 let profile: Profile = { name: '', modules: [] };
 let settingsDirty = false;
+let pendingNewFlightNav: (() => void) | null = null;
 let profileEditing = false;
 let pendingAvatarChange: string | null | undefined = undefined;
 let editingCardId: number | null = null;
@@ -234,11 +236,74 @@ async function loadFromFile(): Promise<void> {
   }
 }
 
-document.addEventListener('contextmenu', (e) => {
-  const target = e.target as HTMLElement;
-  const isText = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
-  if (!isText) e.preventDefault();
-});
+// ─── Context menu ──────────────────────────────────────────────────────────
+(function initContextMenu() {
+  const menu = document.createElement('div');
+  menu.id = 'ctx-menu';
+  document.body.appendChild(menu);
+
+  function renderMenu() {
+    const cutBtn  = document.createElement('button'); cutBtn.id  = 'ctx-cut';
+    const copyBtn = document.createElement('button'); copyBtn.id = 'ctx-copy';
+    const pasteBtn= document.createElement('button'); pasteBtn.id= 'ctx-paste';
+    cutBtn.textContent   = t('ctx_cut');
+    copyBtn.textContent  = t('ctx_copy');
+    pasteBtn.textContent = t('ctx_paste');
+    menu.innerHTML = '';
+    menu.append(cutBtn, copyBtn, pasteBtn);
+    if ((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV) {
+      const sep = document.createElement('hr');
+      sep.style.cssText = 'border:none;border-top:1px solid var(--border);margin:4px 0;';
+      const inspectBtn = document.createElement('button');
+      inspectBtn.textContent = 'Inspecter';
+      inspectBtn.addEventListener('click', async () => {
+        hide();
+        try {
+          await invoke('plugin:webview|internal_toggle_devtools', { label: getCurrentWebviewWindow().label });
+        } catch (e) { console.error('[devtools]', e); }
+      });
+      menu.append(sep, inspectBtn);
+    }
+    return { cutBtn, copyBtn, pasteBtn };
+  }
+
+  function hide() { menu.style.display = 'none'; }
+
+  document.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    const { cutBtn, copyBtn, pasteBtn } = renderMenu();
+    const sel = window.getSelection()?.toString() ?? '';
+    const active = document.activeElement as HTMLInputElement | HTMLTextAreaElement | null;
+    const isEditable = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || (active as HTMLElement).isContentEditable);
+    cutBtn.disabled  = !(isEditable && sel.length > 0);
+    copyBtn.disabled = sel.length === 0;
+
+    cutBtn.addEventListener('click',  () => { document.execCommand('cut');  hide(); });
+    copyBtn.addEventListener('click', () => { document.execCommand('copy'); hide(); });
+    pasteBtn.addEventListener('click', async () => {
+      hide();
+      try {
+        const text = await navigator.clipboard.readText();
+        if (isEditable && active) {
+          const s = active.selectionStart ?? active.value.length;
+          const end = active.selectionEnd ?? active.value.length;
+          active.value = active.value.slice(0, s) + text + active.value.slice(end);
+          active.selectionStart = active.selectionEnd = s + text.length;
+          active.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      } catch { /* clipboard access denied */ }
+    });
+
+    const x = Math.min(e.clientX, window.innerWidth  - 145);
+    const y = Math.min(e.clientY, window.innerHeight - 110);
+    menu.style.left    = x + 'px';
+    menu.style.top     = y + 'px';
+    menu.style.display = 'block';
+  });
+
+  document.addEventListener('click',   hide);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hide(); });
+})();
 
 let _lastBtnRect: DOMRect | null = null;
 document.addEventListener('click', (e) => {
@@ -485,7 +550,9 @@ function renderSessions(): void {
         const q = query.replace(/^#/, '');
         return String(num).includes(q)
           || (s.name?.toLowerCase().includes(query) ?? false)
-          || (s.notes?.toLowerCase().includes(query) ?? false);
+          || (s.notes?.toLowerCase().includes(query) ?? false)
+          || (s.aircraft?.some(a => a.toLowerCase().includes(query)) ?? false)
+          || (s.missionTypes?.some(mt => mt.toLowerCase().includes(query)) ?? false);
       })
     : numbered;
 
@@ -687,11 +754,11 @@ function updateProfileBtn(): void {
 }
 
 function hidAllPages(): void {
-  (document.getElementById('main')          as HTMLElement).style.display = 'none';
+  (document.getElementById('log-page')      as HTMLElement).style.display = 'none';
   (document.getElementById('profile-page')  as HTMLElement).style.display = 'none';
   (document.getElementById('new-flight-page') as HTMLElement).style.display = 'none';
   (document.getElementById('settings-page') as HTMLElement).style.display = 'none';
-  ['nav-historique','nav-new-flight','nav-settings'].forEach(id => document.getElementById(id)?.classList.remove('active'));
+  ['nav-historique','nav-new-flight','nav-settings','burger-historique','burger-new-flight','burger-settings'].forEach(id => document.getElementById(id)?.classList.remove('active'));
   document.getElementById('profile-btn')?.classList.remove('active');
 }
 
@@ -714,7 +781,7 @@ function showHistorique(): void {
   if (checkProfileEditing(() => showHistorique())) return;
   if (checkSettingsDirty(() => showHistorique())) return;
   hidAllPages();
-  (document.getElementById('main') as HTMLElement).style.display = '';
+  (document.getElementById('log-page') as HTMLElement).style.display = '';
   document.getElementById('nav-historique')?.classList.add('active');
   document.getElementById('burger-historique')?.classList.add('active');
   closeBurger();
@@ -728,6 +795,7 @@ function showSettings(): void {
   hidAllPages();
   (document.getElementById('settings-page') as HTMLElement).style.display = 'flex';
   document.getElementById('nav-settings')?.classList.add('active');
+  document.getElementById('burger-settings')?.classList.add('active');
   const expCb = document.getElementById('st-export-profile') as HTMLInputElement;
   const impCb = document.getElementById('st-import-profile') as HTMLInputElement;
   if (expCb) expCb.checked = !!profile.exportProfile;
@@ -737,12 +805,14 @@ function showSettings(): void {
 
 function onSettingChange(): void {
   settingsDirty = true;
+  (document.getElementById('st-action-btns') as HTMLElement).style.display = '';
 }
 
 function saveSettings(): void {
   profile.exportProfile = (document.getElementById('st-export-profile') as HTMLInputElement).checked;
   profile.importProfile = (document.getElementById('st-import-profile') as HTMLInputElement).checked;
   settingsDirty = false;
+  (document.getElementById('st-action-btns') as HTMLElement).style.display = 'none';
   saveToFile();
 }
 
@@ -750,6 +820,7 @@ function cancelSettings(): void {
   (document.getElementById('st-export-profile') as HTMLInputElement).checked = !!profile.exportProfile;
   (document.getElementById('st-import-profile') as HTMLInputElement).checked = !!profile.importProfile;
   settingsDirty = false;
+  (document.getElementById('st-action-btns') as HTMLElement).style.display = 'none';
 }
 
 function getSettingsChanges(): string[] {
@@ -811,10 +882,11 @@ function getNewFlightChanges(): string[] {
   return changes;
 }
 
-function checkNewFlight(_nav: () => void): boolean {
+function checkNewFlight(nav: () => void): boolean {
   const page = document.getElementById('new-flight-page') as HTMLElement;
   if (!page || page.style.display === 'none') return false;
   if (!isNewFlightDirty()) return false;
+  pendingNewFlightNav = nav;
   const changes = getNewFlightChanges();
   const msg = document.getElementById('nf-confirm-msg')!;
   msg.innerHTML = changes.length
@@ -826,8 +898,12 @@ function checkNewFlight(_nav: () => void): boolean {
 
 function confirmNewFlightLeave(save: boolean | null): void {
   (document.getElementById('nf-confirm-overlay') as HTMLElement).style.display = 'none';
-  if (save === null) return;
-  if (save) saveNewFlight();
+  if (save === null) { pendingNewFlightNav = null; return; }
+  if (save) { saveNewFlight(); pendingNewFlightNav = null; return; }
+  const nav = pendingNewFlightNav;
+  pendingNewFlightNav = null;
+  showNewFlight();
+  if (nav) nav();
 }
 
 function checkSettingsDirty(_nav: () => void): boolean {
@@ -858,6 +934,7 @@ function showNewFlight(): void {
   hidAllPages();
   (document.getElementById('new-flight-page') as HTMLElement).style.display = 'flex';
   document.getElementById('nav-new-flight')?.classList.add('active');
+  document.getElementById('burger-new-flight')?.classList.add('active');
   const today = fmtDateInput(new Date());
   (document.getElementById('nf-date1') as HTMLInputElement).value = today;
   (document.getElementById('nf-date2') as HTMLInputElement).value = today;
@@ -1144,6 +1221,9 @@ function uploadAvatar(event: Event): void {
 function removeAvatar(): void {
   const nameVal = (document.getElementById('pf-name-input') as HTMLInputElement)?.value || profile.name;
   pendingAvatarChange = null;
+  profile = { ...profile, avatar: undefined };
+  saveToFile();
+  updateProfileBtn();
   const preview = document.getElementById('pf-avatar-preview');
   if (preview) preview.innerHTML = avatarHtml(nameVal, undefined, 72);
   const wrap = document.getElementById('pf-avatar-remove-wrap');
@@ -1220,7 +1300,7 @@ window.confirmDebrief = confirmDebrief;
 window.skipDebrief = skipDebrief;
 (window as any).deleteDebrief = deleteDebrief;
 function handleSearchInput(): void {
-  const mainEl = document.getElementById('main') as HTMLElement;
+  const mainEl = document.getElementById('log-page') as HTMLElement;
   if (mainEl.style.display === 'none') {
     hidAllPages();
     mainEl.style.display = '';
@@ -1260,6 +1340,18 @@ window.saveProfile = saveProfile;
 (window as any).uploadAvatar = uploadAvatar;
 (window as any).removeAvatar = removeAvatar;
 (window as any).setLanguage = setLanguage;
+
+function setTheme(theme: string): void {
+  const root = document.getElementById('dcs-root') as HTMLElement;
+  if (theme === 'parchment') { root.removeAttribute('data-theme'); document.body.removeAttribute('data-theme'); }
+  else { root.setAttribute('data-theme', theme); document.body.setAttribute('data-theme', theme); }
+  localStorage.setItem('theme', theme);
+  document.querySelectorAll('.theme-btn').forEach(btn => {
+    btn.classList.toggle('active', (btn as HTMLElement).dataset.theme === theme);
+  });
+}
+(window as any).setTheme = setTheme;
+
 window.tbMinimize = () => getCurrentWindow().minimize();
 window.tbMaximize = () => getCurrentWindow().toggleMaximize();
 window.tbClose = () => getCurrentWindow().close();
@@ -1270,6 +1362,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   await initI18n();
   await loadFromFile();
   applyStaticTranslations();
+  const savedTheme = localStorage.getItem('theme') || 'parchment';
+  setTheme(savedTheme);
   // Set dynamic initial state labels
   const siLabel = document.getElementById('si-label');
   if (siLabel) siLabel.textContent = t('session_waiting');
@@ -1281,4 +1375,10 @@ window.addEventListener('DOMContentLoaded', async () => {
   updateSteamDisplay();
   updateTotal();
   renderSessions();
+
+  const searchBar = document.getElementById('search-bar');
+  if (searchBar) {
+    searchBar.addEventListener('mouseenter', () => searchBar.classList.add('hovered'));
+    searchBar.addEventListener('mouseleave', () => searchBar.classList.remove('hovered'));
+  }
 });
