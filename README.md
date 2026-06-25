@@ -18,7 +18,7 @@ Built with **Tauri v2** · **TypeScript** · **Vite** — Windows
 
 ## Customization
 
-- 🌕 Light theme (parchment) · 🌑 Dark Brown theme
+- 🌕 Light theme (parchment) · 🟤 Dark Brown theme
 - 🇬🇧 English · 🇫🇷 Français · 🇷🇺 Русский
 
 ## Installation
