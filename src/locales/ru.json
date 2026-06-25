@@ -119,5 +119,12 @@
   "save_indicator": "✓ Сохранено",
   "ctx_cut": "Вырезать",
   "ctx_copy": "Копировать",
-  "ctx_paste": "Вставить"
+  "ctx_paste": "Вставить",
+  "st_search_ph": "Поиск параметра",
+  "settings_dev_section": "Разработчик / Отладка",
+  "dev_mode_enable": "Режим разработчика",
+  "dev_mode_disable": "Режим разработчика",
+  "dev_lang_setup": "Выбор языка",
+  "dev_reset_launch": "Сбросить первый запуск",
+  "lang_setup_title": "Выберите язык"
 }
