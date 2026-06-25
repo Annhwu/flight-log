@@ -1003,6 +1003,14 @@ function toggleSection(titleEl: HTMLElement): void {
   titleEl.closest('.st-section')?.classList.toggle('collapsed');
 }
 
+function cancelNewFlight(): void {
+  if (checkProfileEditing(() => cancelNewFlight())) return;
+  if (checkSettingsDirty(() => cancelNewFlight())) return;
+  hidAllPages();
+  (document.getElementById('log-page') as HTMLElement).style.display = '';
+  document.getElementById('burger-history')?.classList.add('active');
+}
+
 function showNewFlight(): void {
   if (checkCardEditing(() => showNewFlight())) return;
   if (checkProfileEditing(() => showNewFlight())) return;
@@ -1514,6 +1522,7 @@ window.filterSessions = handleSearchInput;
 window.showProfile = showProfile;
 (window as any).showHistorique = showHistorique;
 (window as any).showNewFlight = showNewFlight;
+(window as any).cancelNewFlight = cancelNewFlight;
 (window as any).updateNewFlightResult = updateNewFlightResult;
 (window as any).saveNewFlight = saveNewFlight;
 (window as any).showSettings = showSettings;

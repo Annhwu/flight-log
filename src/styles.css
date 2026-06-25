@@ -290,6 +290,7 @@ hr{border:none;border-top:1.5px solid var(--border);margin:12px 0;flex-shrink:0;
 #nf-notes{width:280px !important;}
 .nf-datetime-row{display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;}
 .nf-duration-row{display:flex;align-items:center;gap:10px;}
+.nf-time-hint{font-size:11px;color:var(--ink3);font-style:italic;}
 #nf-save-msg{font-size:12px;color:var(--ink3);opacity:0;transition:opacity 0.3s;pointer-events:none;}
 #profile-page{display:none;flex-direction:column;flex:1;overflow:hidden;}
 #pf-header{display:flex;align-items:center;gap:12px;padding:12px 24px;background:var(--bg2);border-bottom:1.5px solid var(--border);flex-shrink:0;}
