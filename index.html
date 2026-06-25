@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 
 <head>
   <meta charset="UTF-8">
@@ -17,6 +17,14 @@
       <button id="tb-minimize" onclick="tbMinimize()">—</button>
       <button id="tb-maximize" onclick="tbMaximize()">□</button>
       <button id="tb-close" onclick="tbClose()">✕</button>
+    </div>
+  </div>
+  <div id="lang-setup-overlay" style="display:none;">
+    <h2 data-i18n="lang_setup_title">Choose your language</h2>
+    <div style="display:flex;gap:16px;">
+      <button class="lang-setup-btn" onclick="setupLang('en')">🇬🇧 English</button>
+      <button class="lang-setup-btn" onclick="setupLang('fr')">🇫🇷 Français</button>
+      <button class="lang-setup-btn" onclick="setupLang('ru')">🇷🇺 Русский</button>
     </div>
   </div>
 <div class="page">
@@ -71,6 +79,10 @@
       <div id="settings-page" style="display:none">
         <div id="st-header">
           <div id="st-title" data-i18n="settings_title">Paramètres</div>
+          <div class="page-search-bar" id="st-search-bar">
+            <input type="text" id="st-search-input" placeholder=" " oninput="filterSettings()">
+            <span id="st-search-hint" data-i18n="st_search_ph">Rechercher un paramètre</span>
+          </div>
         </div>
         <div id="st-content">
           <div class="st-section">
@@ -99,8 +111,8 @@
             <div class="st-section-title" onclick="toggleSection(this)"><span class="st-chevron">▾</span><span data-i18n="settings_language">Langue</span></div>
             <div class="st-section-body">
               <div class="lang-switcher">
-                <button class="lang-btn" data-lang="fr" onclick="setLanguage('fr')">FR</button>
                 <button class="lang-btn" data-lang="en" onclick="setLanguage('en')">EN</button>
+                <button class="lang-btn" data-lang="fr" onclick="setLanguage('fr')">FR</button>
                 <button class="lang-btn" data-lang="ru" onclick="setLanguage('ru')">RU</button>
               </div>
             </div>
@@ -116,6 +128,20 @@
                 <div class="theme-option">
                   <button class="theme-btn" data-theme="dark-brown" onclick="setTheme('dark-brown')"></button>
                   <span class="theme-label" data-i18n="theme_dark">Sombre</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="st-section">
+            <div class="st-section-title" onclick="toggleSection(this)"><span class="st-chevron">▾</span><span data-i18n="settings_dev_section">Developer / Debug</span></div>
+            <div class="st-section-body">
+              <div class="st-btn-row">
+                <button class="btn-sm" id="dev-mode-btn" onclick="toggleDevMode()" data-i18n="dev_mode_enable">Mod développeur</button>
+              </div>
+              <div id="dev-tools-panel" style="display:none;margin-top:8px;">
+                <div class="st-btn-row">
+                  <button class="btn-sm" onclick="showLangOverlay()" data-i18n="dev_lang_setup">Language Setup</button>
+                  <button class="btn-sm btn-cancel" onclick="resetFirstLaunch()" data-i18n="dev_reset_launch">Reset first launch</button>
                 </div>
               </div>
             </div>
