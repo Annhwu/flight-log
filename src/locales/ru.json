@@ -47,6 +47,7 @@
   "new_flight_name": "Название",
   "new_flight_name_ph": "Название",
   "new_flight_missions": "Тип(ы) миссии",
+  "nf_time_required": "* Время начала и окончания обязательны",
   "new_flight_map": "Карта",
   "new_flight_aircraft": "Летательные аппараты",
   "new_flight_comment": "Комментарий",

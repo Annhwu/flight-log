@@ -47,6 +47,7 @@
   "new_flight_name": "Nom",
   "new_flight_name_ph": "Nom",
   "new_flight_missions": "Type(s) de mission",
+  "nf_time_required": "* Les heures de début et fin sont obligatoires",
   "new_flight_map": "Map",
   "new_flight_aircraft": "Appareil(s) volé(s)",
   "new_flight_comment": "Commentaire",

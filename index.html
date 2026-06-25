@@ -175,7 +175,7 @@
               </div>
             </div>
           </div>
-          <div class="nf-duration-row"><span class="res-label" data-i18n="new_flight_duration">Durée calculée</span><span class="res-dur" id="nf-duration">—</span></div>
+          <div class="nf-duration-row"><span class="res-label" data-i18n="new_flight_duration">Durée calculée</span><span class="res-dur" id="nf-duration">—</span><span class="nf-time-hint" data-i18n="nf_time_required">* Heures de début et fin obligatoires</span></div>
           <div class="notes-group">
             <label class="edit-block-label" data-i18n="new_flight_name">Nom</label>
             <input type="text" id="nf-name" class="debrief-input" style="width:100%" data-i18n-ph="new_flight_name_ph" placeholder="Nom">
@@ -198,7 +198,7 @@
           </div>
           <div class="edit-actions">
             <button class="btn-sm" onclick="saveNewFlight()" data-i18n="new_flight_add">Ajouter</button>
-            <button class="btn-sm btn-cancel" onclick="showHistorique()" data-i18n="new_flight_cancel">Annuler</button>
+            <button class="btn-sm btn-cancel" onclick="cancelNewFlight()" data-i18n="new_flight_cancel">Annuler</button>
           </div>
           <div id="nf-save-msg" data-i18n="new_flight_saved">✓ Sauvegardé</div>
         </div>

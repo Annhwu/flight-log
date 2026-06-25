@@ -47,6 +47,7 @@
   "new_flight_name": "Name",
   "new_flight_name_ph": "Name",
   "new_flight_missions": "Mission type(s)",
+  "nf_time_required": "* Start and end times are required",
   "new_flight_map": "Map",
   "new_flight_aircraft": "Aircraft flown",
   "new_flight_comment": "Comment",
