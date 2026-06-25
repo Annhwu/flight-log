@@ -16,9 +16,28 @@ interface Session {
   notes?: string;
   aircraft?: string[];
   missionTypes?: string[];
+  maps?: string[];
 }
 
 const MISSION_TYPES = ['Training', 'CAP', 'CAS', 'SEAD', 'Strike', 'Intercept', 'Recon', 'Anti-Ship'];
+
+const DCS_MAPS: { name: string; key: string; abbr?: string }[] = [
+  { name: 'Caucasus',                       key: 'map_caucasus'       },
+  { name: 'Marianne WWII',                  key: 'map_marianne_wwii'  },
+  { name: 'Cold War Germany',               key: 'map_cwg',            abbr: 'CWG'  },
+  { name: 'Afghanistan',                    key: 'map_afghanistan'    },
+  { name: 'Iraq',                           key: 'map_iraq'           },
+  { name: 'Kola',                           key: 'map_kola'           },
+  { name: 'Sinaï',                          key: 'map_sinai'          },
+  { name: 'Normandie 2.0',                  key: 'map_normandie20'    },
+  { name: 'Atlantique Sud',                 key: 'map_south_atlantic' },
+  { name: 'Marianas',                       key: 'map_marianas'       },
+  { name: 'Syrie',                          key: 'map_syria'          },
+  { name: 'La Manche',                      key: 'map_channel'        },
+  { name: 'Golfe Persique',                 key: 'map_persian_gulf'   },
+  { name: 'Normandie 1944',                 key: 'map_normandie1944'  },
+  { name: 'Nevada Test and Training Range', key: 'map_nttr',           abbr: 'NTTR' },
+];
 
 interface DCSModule {
   name: string;
@@ -29,8 +48,10 @@ interface DCSModule {
 interface Profile {
   name: string;
   modules: string[];
+  maps: string[];
   exportProfile?: boolean;
   importProfile?: boolean;
+  importMapsModules?: boolean;
   avatar?: string;
 }
 
@@ -38,6 +59,8 @@ interface AppData {
   steamMinutes: number;
   sessions: Session[];
   profile?: Profile;
+  ownedMaps?: string[];
+  ownedModules?: string[];
 }
 
 interface EditResult {
@@ -151,7 +174,7 @@ let steamMinutes = 0;
 let activeStart: Date | null = null;
 let elapsedInterval: number | null = null;
 let pendingSession: Session | null = null;
-let profile: Profile = { name: '', modules: [] };
+let profile: Profile = { name: '', modules: [], maps: [] };
 let settingsDirty = false;
 let pendingNewFlightNav: (() => void) | null = null;
 let profileEditing = false;
@@ -229,7 +252,9 @@ async function loadFromFile(): Promise<void> {
       const data: AppData = JSON.parse(content);
       steamMinutes = data.steamMinutes ?? 0;
       sessions = data.sessions ?? [];
-      profile  = data.profile  ?? { name: '', modules: [] };
+      profile  = data.profile  ?? { name: '', modules: [], maps: [] };
+      if (!profile.maps) profile.maps = [];
+      if (!profile.modules) profile.modules = [];
     }
   } catch {
     // Pas de fichier existant, on démarre vide
@@ -339,7 +364,13 @@ function showSaveIndicator(): void {
 // ─── Export / Import ────────────────────────────────────────────────────────
 
 async function exportJSON(): Promise<void> {
-  const data: AppData = { steamMinutes, sessions, ...(profile.exportProfile ? { profile } : {}) };
+  const data: AppData = {
+    steamMinutes,
+    sessions,
+    ownedMaps: profile.maps ?? [],
+    ownedModules: profile.modules ?? [],
+    ...(profile.exportProfile ? { profile } : {}),
+  };
   const json = JSON.stringify(data, null, 2);
   const options: DialogSaveOptions = {
     defaultPath: 'export_dcs_flight_log.json',
@@ -370,10 +401,22 @@ function loadFile(event: Event): void {
       steamMinutes = data.steamMinutes ?? 0;
       sessions = data.sessions ?? [];
       if (data.profile && profile.importProfile) {
-        profile = { ...data.profile, importProfile: profile.importProfile, exportProfile: profile.exportProfile };
+        profile = { ...data.profile, importProfile: profile.importProfile, exportProfile: profile.exportProfile, importMapsModules: profile.importMapsModules };
+        if (!profile.maps) profile.maps = [];
+        if (!profile.modules) profile.modules = [];
+      }
+      if (profile.importMapsModules) {
+        const srcMaps = data.ownedMaps ?? data.profile?.maps;
+        const srcModules = data.ownedModules ?? data.profile?.modules;
+        if (srcMaps) profile.maps = srcMaps;
+        if (srcModules) profile.modules = srcModules;
+      }
+      if ((data.profile && profile.importProfile) || profile.importMapsModules) {
         updateProfileBtn();
         const pfPage = document.getElementById('profile-page');
-        if (pfPage && pfPage.style.display !== 'none') renderProfileView();
+        if (pfPage && pfPage.style.display !== 'none') {
+          if (profileEditing) editProfile(); else renderProfileView();
+        }
       }
       await saveToFile();
       updateSteamDisplay();
@@ -468,6 +511,8 @@ function openDebrief(): void {
   (document.getElementById('debrief-notes') as HTMLTextAreaElement).value = '';
   const picker = document.getElementById('debrief-aircraft-picker');
   if (picker) picker.innerHTML = renderAircraftPickerHtml([]);
+  const mapPicker = document.getElementById('debrief-map-picker');
+  if (mapPicker) mapPicker.innerHTML = renderMapPickerHtml([]);
   const mwrap = document.getElementById('debrief-mission-picker-wrap');
   if (mwrap) mwrap.innerHTML = renderMissionPickerHtml(0, []);
   document.getElementById('debrief-overlay')!.classList.add('open');
@@ -480,6 +525,8 @@ async function confirmDebrief(): Promise<void> {
   pendingSession.notes = (document.getElementById('debrief-notes') as HTMLTextAreaElement).value.trim() || undefined;
   pendingSession.aircraft = Array.from(document.querySelectorAll<HTMLElement>('#debrief-aircraft-picker .aircraft-toggle.selected')).map(el => el.dataset.aircraft!).filter(Boolean);
   if (!pendingSession.aircraft.length) pendingSession.aircraft = undefined;
+  const debriefMaps = Array.from(document.querySelectorAll<HTMLElement>('#debrief-map-picker .aircraft-toggle.selected')).map(el => el.dataset.map!).filter(Boolean);
+  pendingSession.maps = debriefMaps.length ? debriefMaps : undefined;
   const mt = Array.from(document.querySelectorAll<HTMLElement>('#emission-tags-0 [data-mission]')).map(el => el.dataset.mission!).filter(Boolean);
   pendingSession.missionTypes = mt.length ? mt : undefined;
   sessions.unshift(pendingSession);
@@ -570,6 +617,8 @@ function renderSessions(): void {
     const notesBadge   = s.notes ? `<div class="row s-note-badge">${t('card_notes_badge')}</div>` : '';
     const aircraftRow  = s.aircraft?.length ? `<div class="s-aircraft-row">${s.aircraft.map(a => `<span class="s-aircraft-tag">${escapeHtml(a)}</span>`).join('')}</div>` : '';
     const missionRow   = s.missionTypes?.length ? `<div class="s-aircraft-row">${s.missionTypes.map(mt => `<span class="s-mission-tag" data-mission="${escapeHtml(mt)}">${escapeHtml(mt)}</span>`).join('')}</div>` : '';
+    const mapRow       = s.maps?.length ? `<div class="s-aircraft-row">${s.maps.map(m => { const mp = DCS_MAPS.find(d => d.name === m); return `<span class="s-map-tag">${escapeHtml(mp ? t(mp.key) : m)}</span>`; }).join('')}</div>` : '';
+
     const notesFull    = s.notes
       ? `<div class="s-notes-full">${escapeHtml(s.notes).replace(/\n/g, '<br>')}</div>`
       : `<div class="s-notes-empty">${t('card_no_notes')}</div>`;
@@ -582,6 +631,7 @@ function renderSessions(): void {
           <div class="row">${t('card_end')}&nbsp;<span>${fmtDate(end)} ${pad(end.getHours())}:${pad(end.getMinutes())}</span></div>
           ${notesBadge}
           ${missionRow}
+          ${mapRow}
           ${aircraftRow}
         </div>
         <div class="s-dur">${durLabel(s.durationMin)}</div>
@@ -619,8 +669,12 @@ function renderSessions(): void {
           <div class="mission-picker-wrap">${renderMissionPickerHtml(s.id, s.missionTypes ?? [])}</div>
         </div>
         <div class="notes-group">
+          <label class="edit-block-label">${t('edit_map')}</label>
+          <div id="emap-${s.id}">${renderMapPickerExpandable(String(s.id), s.maps ?? [])}</div>
+        </div>
+        <div class="notes-group">
           <label class="edit-block-label">${t('edit_aircraft')}</label>
-          <div id="eaircraft-${s.id}" class="aircraft-picker-scroll">${renderAircraftPickerHtml(s.aircraft ?? [])}</div>
+          <div id="eaircraft-${s.id}">${renderAircraftPickerExpandable(String(s.id), s.aircraft ?? [])}</div>
         </div>
         <div class="notes-group">
           <label class="edit-block-label">${t('edit_notes')}</label>
@@ -685,8 +739,10 @@ async function saveEdit(id: number): Promise<void> {
   sessions[idx].durationMin = res.dur;
   sessions[idx].name  = (document.getElementById('ename-'  + id) as HTMLInputElement).value.trim() || undefined;
   sessions[idx].notes = (document.getElementById('enotes-' + id) as HTMLTextAreaElement).value.trim() || undefined;
-  const ac = Array.from(document.querySelectorAll<HTMLElement>(`#eaircraft-${id} .aircraft-toggle.selected`)).map(el => el.dataset.aircraft!).filter(Boolean);
+  const ac = Array.from(document.querySelectorAll<HTMLElement>(`#aircraft-panel-${id} .mission-chip.selected`)).map(el => el.dataset.aircraft!).filter(Boolean);
   sessions[idx].aircraft = ac.length ? ac : undefined;
+  const editMaps = Array.from(document.querySelectorAll<HTMLElement>(`#map-panel-${id} .mission-chip.selected`)).map(el => el.dataset.map!).filter(Boolean);
+  sessions[idx].maps = editMaps.length ? editMaps : undefined;
   const mt = Array.from(document.querySelectorAll<HTMLElement>(`#emission-tags-${id} [data-mission]`)).map(el => el.dataset.mission!).filter(Boolean);
   sessions[idx].missionTypes = mt.length ? mt : undefined;
   if (editingCardId === id) editingCardId = null;
@@ -705,11 +761,16 @@ function getCardChanges(id: number): string[] {
   if (name !== (session.name || undefined)) changes.push(t('change_name', { from: session.name || '—', to: name || '—' }));
   const notes = (document.getElementById('enotes-' + id) as HTMLTextAreaElement)?.value.trim() || undefined;
   if (notes !== (session.notes || undefined)) changes.push(t('change_comment'));
-  const ac = Array.from(document.querySelectorAll<HTMLElement>(`#eaircraft-${id} .aircraft-toggle.selected`)).map(el => el.dataset.aircraft!).filter(Boolean);
+  const ac = Array.from(document.querySelectorAll<HTMLElement>(`#aircraft-panel-${id} .mission-chip.selected`)).map(el => el.dataset.aircraft!).filter(Boolean);
   const savedAc = session.aircraft || [];
   const acAdd = ac.filter(a => !savedAc.includes(a)), acRem = savedAc.filter(a => !ac.includes(a));
   if (acAdd.length) changes.push(t('change_aircraft_added', { list: acAdd.join(', ') }));
   if (acRem.length) changes.push(t('change_aircraft_removed', { list: acRem.join(', ') }));
+  const cardMaps = Array.from(document.querySelectorAll<HTMLElement>(`#map-panel-${id} .mission-chip.selected`)).map(el => el.dataset.map!).filter(Boolean);
+  const savedCardMaps = session.maps || [];
+  const mapsAdd = cardMaps.filter(m => !savedCardMaps.includes(m)), mapsRem = savedCardMaps.filter(m => !cardMaps.includes(m));
+  if (mapsAdd.length) changes.push(t('change_maps_added', { list: mapsAdd.map(m => { const mp = DCS_MAPS.find(d => d.name === m); return mp ? t(mp.key) : m; }).join(', ') }));
+  if (mapsRem.length) changes.push(t('change_maps_removed', { list: mapsRem.map(m => { const mp = DCS_MAPS.find(d => d.name === m); return mp ? t(mp.key) : m; }).join(', ') }));
   const mt = Array.from(document.querySelectorAll<HTMLElement>(`#emission-tags-${id} [data-mission]`)).map(el => el.dataset.mission!).filter(Boolean);
   const savedMt = session.missionTypes || [];
   const mtAdd = mt.filter(t2 => !savedMt.includes(t2)), mtRem = savedMt.filter(t2 => !mt.includes(t2));
@@ -800,6 +861,8 @@ function showSettings(): void {
   const impCb = document.getElementById('st-import-profile') as HTMLInputElement;
   if (expCb) expCb.checked = !!profile.exportProfile;
   if (impCb) impCb.checked = !!profile.importProfile;
+  const impMMCb = document.getElementById('st-import-maps-modules') as HTMLInputElement;
+  if (impMMCb) impMMCb.checked = !!profile.importMapsModules;
   settingsDirty = false;
 }
 
@@ -811,6 +874,7 @@ function onSettingChange(): void {
 function saveSettings(): void {
   profile.exportProfile = (document.getElementById('st-export-profile') as HTMLInputElement).checked;
   profile.importProfile = (document.getElementById('st-import-profile') as HTMLInputElement).checked;
+  profile.importMapsModules = (document.getElementById('st-import-maps-modules') as HTMLInputElement).checked;
   settingsDirty = false;
   (document.getElementById('st-action-btns') as HTMLElement).style.display = 'none';
   saveToFile();
@@ -819,6 +883,7 @@ function saveSettings(): void {
 function cancelSettings(): void {
   (document.getElementById('st-export-profile') as HTMLInputElement).checked = !!profile.exportProfile;
   (document.getElementById('st-import-profile') as HTMLInputElement).checked = !!profile.importProfile;
+  (document.getElementById('st-import-maps-modules') as HTMLInputElement).checked = !!profile.importMapsModules;
   settingsDirty = false;
   (document.getElementById('st-action-btns') as HTMLElement).style.display = 'none';
 }
@@ -827,8 +892,10 @@ function getSettingsChanges(): string[] {
   const changes: string[] = [];
   const exp = (document.getElementById('st-export-profile') as HTMLInputElement)?.checked;
   const imp = (document.getElementById('st-import-profile') as HTMLInputElement)?.checked;
+  const impMM = (document.getElementById('st-import-maps-modules') as HTMLInputElement)?.checked;
   if (exp !== !!profile.exportProfile) changes.push(t('change_setting_export', { state: exp ? t('change_enabled') : t('change_disabled') }));
   if (imp !== !!profile.importProfile) changes.push(t('change_setting_import', { state: imp ? t('change_enabled') : t('change_disabled') }));
+  if (impMM !== !!profile.importMapsModules) changes.push(t('change_setting_maps_modules', { state: impMM ? t('change_enabled') : t('change_disabled') }));
   return changes;
 }
 
@@ -842,6 +909,12 @@ function getProfileChanges(): string[] {
   const removed = [...saved].filter(m => !selected.has(m));
   if (added.length) changes.push(t('change_modules_added', { list: added.join(', ') }));
   if (removed.length) changes.push(t('change_modules_removed', { list: removed.join(', ') }));
+  const selMaps = new Set(Array.from(document.querySelectorAll<HTMLElement>('.pf-map-toggle.selected')).map(el => el.dataset.map!).filter(Boolean));
+  const savedMaps = new Set(profile.maps);
+  const mapsAdded = [...selMaps].filter(m => !savedMaps.has(m));
+  const mapsRemoved = [...savedMaps].filter(m => !selMaps.has(m));
+  if (mapsAdded.length) changes.push(t('change_maps_added', { list: mapsAdded.join(', ') }));
+  if (mapsRemoved.length) changes.push(t('change_maps_removed', { list: mapsRemoved.join(', ') }));
   return changes;
 }
 
@@ -864,9 +937,10 @@ function confirmProfileLeave(save: boolean | null): void {
 function isNewFlightDirty(): boolean {
   const name  = (document.getElementById('nf-name')  as HTMLInputElement)?.value.trim();
   const notes = (document.getElementById('nf-notes') as HTMLTextAreaElement)?.value.trim();
-  const ac = document.querySelectorAll('#nf-aircraft-picker .aircraft-toggle.selected').length;
+  const ac = document.querySelectorAll('#aircraft-panel-nf .mission-chip.selected').length;
   const mt = document.querySelectorAll('#emission-tags--1 [data-mission]').length;
-  return !!(name || notes || ac || mt);
+  const maps = document.querySelectorAll('#map-panel-nf .mission-chip.selected').length;
+  return !!(name || notes || ac || mt || maps);
 }
 
 function getNewFlightChanges(): string[] {
@@ -875,8 +949,10 @@ function getNewFlightChanges(): string[] {
   if (name) changes.push(t('change_flight_name', { name }));
   const mt = Array.from(document.querySelectorAll<HTMLElement>('#emission-tags--1 [data-mission]')).map(el => el.dataset.mission!).filter(Boolean);
   if (mt.length) changes.push(t('change_missions', { list: mt.join(', ') }));
-  const ac = Array.from(document.querySelectorAll<HTMLElement>('#nf-aircraft-picker .aircraft-toggle.selected')).map(el => el.dataset.aircraft!).filter(Boolean);
+  const ac = Array.from(document.querySelectorAll<HTMLElement>('#aircraft-panel-nf .mission-chip.selected')).map(el => el.dataset.aircraft!).filter(Boolean);
   if (ac.length) changes.push(t('change_aircraft', { list: ac.join(', ') }));
+  const nfMaps = Array.from(document.querySelectorAll<HTMLElement>('#map-panel-nf .mission-chip.selected')).map(el => el.dataset.map!).filter(Boolean);
+  if (nfMaps.length) changes.push(t('change_maps_added', { list: nfMaps.map(m => { const mp = DCS_MAPS.find(d => d.name === m); return mp ? t(mp.key) : m; }).join(', ') }));
   const notes = (document.getElementById('nf-notes') as HTMLTextAreaElement)?.value.trim();
   if (notes) changes.push(t('change_comment_filled'));
   return changes;
@@ -947,7 +1023,9 @@ function showNewFlight(): void {
   const mwrap = document.getElementById('nf-mission-picker-wrap');
   if (mwrap) mwrap.innerHTML = renderMissionPickerHtml(-1, []);
   const apicker = document.getElementById('nf-aircraft-picker');
-  if (apicker) apicker.innerHTML = renderAircraftPickerHtml([]);
+  if (apicker) apicker.innerHTML = renderAircraftPickerExpandable('nf', []);
+  const mpicker = document.getElementById('nf-map-picker');
+  if (mpicker) mpicker.innerHTML = renderMapPickerExpandable('nf', []);
   updateNewFlightResult();
 }
 
@@ -981,8 +1059,9 @@ async function saveNewFlight(): Promise<void> {
   if (dur <= 0) return;
   const name  = (document.getElementById('nf-name') as HTMLInputElement).value.trim() || undefined;
   const notes = (document.getElementById('nf-notes') as HTMLTextAreaElement).value.trim() || undefined;
-  const ac = Array.from(document.querySelectorAll<HTMLElement>('#nf-aircraft-picker .aircraft-toggle.selected')).map(el => el.dataset.aircraft!).filter(Boolean);
+  const ac = Array.from(document.querySelectorAll<HTMLElement>('#aircraft-panel-nf .mission-chip.selected')).map(el => el.dataset.aircraft!).filter(Boolean);
   const mt = Array.from(document.querySelectorAll<HTMLElement>('#emission-tags--1 [data-mission]')).map(el => el.dataset.mission!).filter(Boolean);
+  const nfMapsSave = Array.from(document.querySelectorAll<HTMLElement>('#map-panel-nf .mission-chip.selected')).map(el => el.dataset.map!).filter(Boolean);
   const s: Session = {
     id: Date.now(),
     startTs: start.getTime(),
@@ -992,6 +1071,7 @@ async function saveNewFlight(): Promise<void> {
     notes,
     aircraft: ac.length ? ac : undefined,
     missionTypes: mt.length ? mt : undefined,
+    maps: nfMapsSave.length ? nfMapsSave : undefined,
   };
   sessions.unshift(s);
   renderSessions(); updateTotal(); await saveToFile();
@@ -1122,6 +1202,94 @@ function renderAircraftPickerHtml(selected: string[]): string {
   }).join('');
 }
 
+
+function renderMapPickerHtml(selected: string[]): string {
+  if (!profile.maps.length) return `<span class="pf-empty">${t('profile_no_maps_configured')}</span>`;
+  return profile.maps.map(mapName => {
+    const map = DCS_MAPS.find(d => d.name === mapName);
+    const label = map ? (map.abbr ?? t(map.key)) : mapName;
+    const sel = selected.includes(mapName);
+    return `<button type="button" class="aircraft-toggle${sel ? ' selected' : ''}" onclick="this.classList.toggle('selected')" data-map="${escapeHtml(mapName)}">${escapeHtml(label)}<img class="aircraft-toggle-close" src="./icons/close.png" alt="×"></button>`;
+  }).join('');
+}
+
+// ─── Expandable pickers (cards & nouveau vol) ───────────────────────────────
+
+function aircraftTagHtml2(contextId: string, model: string): string {
+  return `<span class="mission-tag" data-aircraft="${escapeHtml(model)}">${escapeHtml(model)}<button type="button" class="mission-tag-remove" onclick="removeAircraftType('${contextId}','${escapeHtml(model)}')"><img src="./icons/close.png" alt="×"></button></span>`;
+}
+
+function mapTagHtml2(contextId: string, mapName: string, label: string): string {
+  return `<span class="mission-tag" data-map="${escapeHtml(mapName)}">${escapeHtml(label)}<button type="button" class="mission-tag-remove" onclick="removeMapType('${contextId}','${escapeHtml(mapName)}')"><img src="./icons/close.png" alt="×"></button></span>`;
+}
+
+function renderAircraftPickerExpandable(contextId: string, selected: string[]): string {
+  if (!profile.modules.length) return `<span class="pf-empty">${t('profile_no_modules_configured')}</span>`;
+  const ownedMods = DCS_MODULES.filter(mod => getEffectiveOwnedModuleNames().has(mod.name));
+  const modelsSet = new Set<string>();
+  ownedMods.forEach(mod => (mod.variants ?? [mod.name]).forEach(m => modelsSet.add(m)));
+  const models = Array.from(modelsSet).sort();
+  const tags = selected.filter(m => models.includes(m)).map(m => aircraftTagHtml2(contextId, m)).join('');
+  const chips = models.map(model => {
+    const sel = selected.includes(model);
+    return `<button type="button" class="mission-chip${sel ? ' selected' : ''}" onclick="toggleAircraftType('${contextId}','${escapeHtml(model)}')" data-aircraft="${escapeHtml(model)}">${escapeHtml(model)}</button>`;
+  }).join('');
+  return `<div class="mission-picker-row"><div class="mission-tags-row" id="aircraft-tags-${contextId}">${tags}</div><button type="button" class="mission-add-btn" onclick="toggleAircraftPanel('${contextId}')">+</button></div><div class="mission-panel" id="aircraft-panel-${contextId}">${chips}</div>`;
+}
+
+function renderMapPickerExpandable(contextId: string, selected: string[]): string {
+  if (!profile.maps.length) return `<span class="pf-empty">${t('profile_no_maps_configured')}</span>`;
+  const tags = selected.filter(m => profile.maps.includes(m)).map(mapName => {
+    const map = DCS_MAPS.find(d => d.name === mapName);
+    return mapTagHtml2(contextId, mapName, map ? (map.abbr ?? t(map.key)) : mapName);
+  }).join('');
+  const chips = profile.maps.map(mapName => {
+    const map = DCS_MAPS.find(d => d.name === mapName);
+    const label = map ? (map.abbr ?? t(map.key)) : mapName;
+    const sel = selected.includes(mapName);
+    return `<button type="button" class="mission-chip${sel ? ' selected' : ''}" onclick="toggleMapType('${contextId}','${escapeHtml(mapName)}')" data-map="${escapeHtml(mapName)}">${escapeHtml(label)}</button>`;
+  }).join('');
+  return `<div class="mission-picker-row"><div class="mission-tags-row" id="map-tags-${contextId}">${tags}</div><button type="button" class="mission-add-btn" onclick="toggleMapPanel('${contextId}')">+</button></div><div class="mission-panel" id="map-panel-${contextId}">${chips}</div>`;
+}
+
+function toggleAircraftPanel(contextId: string): void {
+  document.getElementById(`aircraft-panel-${contextId}`)?.classList.toggle('open');
+}
+function toggleAircraftType(contextId: string, model: string): void {
+  const chip = document.querySelector<HTMLElement>(`#aircraft-panel-${contextId} [data-aircraft="${model}"]`);
+  if (!chip) return;
+  const adding = !chip.classList.contains('selected');
+  chip.classList.toggle('selected');
+  const tagsRow = document.getElementById(`aircraft-tags-${contextId}`);
+  if (!tagsRow) return;
+  if (adding) tagsRow.insertAdjacentHTML('beforeend', aircraftTagHtml2(contextId, model));
+  else tagsRow.querySelector<HTMLElement>(`[data-aircraft="${model}"]`)?.remove();
+}
+function removeAircraftType(contextId: string, model: string): void {
+  document.getElementById(`aircraft-tags-${contextId}`)?.querySelector<HTMLElement>(`[data-aircraft="${model}"]`)?.remove();
+  document.querySelector<HTMLElement>(`#aircraft-panel-${contextId} [data-aircraft="${model}"]`)?.classList.remove('selected');
+}
+
+function toggleMapPanel(contextId: string): void {
+  document.getElementById(`map-panel-${contextId}`)?.classList.toggle('open');
+}
+function toggleMapType(contextId: string, mapName: string): void {
+  const chip = document.querySelector<HTMLElement>(`#map-panel-${contextId} [data-map="${mapName}"]`);
+  if (!chip) return;
+  const adding = !chip.classList.contains('selected');
+  chip.classList.toggle('selected');
+  const tagsRow = document.getElementById(`map-tags-${contextId}`);
+  if (!tagsRow) return;
+  const map = DCS_MAPS.find(d => d.name === mapName);
+  const label = map ? (map.abbr ?? t(map.key)) : mapName;
+  if (adding) tagsRow.insertAdjacentHTML('beforeend', mapTagHtml2(contextId, mapName, label));
+  else tagsRow.querySelector<HTMLElement>(`[data-map="${mapName}"]`)?.remove();
+}
+function removeMapType(contextId: string, mapName: string): void {
+  document.getElementById(`map-tags-${contextId}`)?.querySelector<HTMLElement>(`[data-map="${mapName}"]`)?.remove();
+  document.querySelector<HTMLElement>(`#map-panel-${contextId} [data-map="${mapName}"]`)?.classList.remove('selected');
+}
+
 function avatarHtml(name: string, avatar?: string, size = 80): string {
   if (avatar) return `<img class="pf-avatar-img" src="${avatar}" alt="avatar" width="${size}" height="${size}">`;
   const svgRaw = generateBoringAvatar(name || 'pilot', size);
@@ -1130,16 +1298,25 @@ function avatarHtml(name: string, avatar?: string, size = 80): string {
 }
 
 function renderProfileView(): void {
+  if (!profile.maps) profile.maps = [];
+  if (!profile.modules) profile.modules = [];
   const content = document.getElementById('pf-content')!;
   const tags = profile.modules.length
     ? profile.modules.map(m => `<span class="pf-module-tag">${escapeHtml(m)}</span>`).join('')
     : `<span class="pf-empty">${t('profile_no_modules')}</span>`;
+  const mapTags = profile.maps.length
+    ? profile.maps.map(m => { const mp = DCS_MAPS.find(d => d.name === m); return `<span class="pf-map-tag">${escapeHtml(mp ? t(mp.key) : m)}</span>`; }).join('')
+    : `<span class="pf-empty">${t('profile_no_maps')}</span>`;
   content.innerHTML = `
     <div class="pf-view">
       <div class="pf-avatar-section">
         ${avatarHtml(profile.name, profile.avatar, 80)}
         <div class="pf-pilot-name">${profile.name ? escapeHtml(profile.name) : `<span class="pf-empty">${t('profile_name_undefined')}</span>`}</div>
         <button class="btn-sm" onclick="editProfile()">${t('profile_edit_btn')}</button>
+      </div>
+      <div class="pf-section">
+        <div class="pf-section-title">${t('profile_maps_count', { count: profile.maps.length })}</div>
+        <div class="pf-modules-display">${mapTags}</div>
       </div>
       <div class="pf-section">
         <div class="pf-section-title">${t('profile_modules_count', { count: profile.modules.length })}</div>
@@ -1151,10 +1328,17 @@ function renderProfileView(): void {
 function editProfile(): void {
   profileEditing = true;
   pendingAvatarChange = undefined;
+  if (!profile.maps) profile.maps = [];
+  if (!profile.modules) profile.modules = [];
   const content = document.getElementById('pf-content')!;
   const grid = DCS_MODULES.map(mod => {
     const sel = profile.modules.includes(mod.name);
     return `<button type="button" class="pf-module-toggle${sel ? ' selected' : ''}" onclick="this.classList.toggle('selected')" data-module="${escapeHtml(mod.name)}">${escapeHtml(mod.name)}</button>`;
+  }).join('');
+  const mapsGrid = DCS_MAPS.map(map => {
+    const sel = profile.maps.includes(map.name);
+    const label = map.abbr ? `${map.name} (${map.abbr})` : t(map.key);
+    return `<button type="button" class="pf-map-toggle${sel ? ' selected' : ''}" onclick="this.classList.toggle('selected')" data-map="${escapeHtml(map.name)}">${escapeHtml(label)}</button>`;
   }).join('');
   const removeBtn = profile.avatar ? `<button class="btn-sm btn-cancel" onclick="removeAvatar()">${t('profile_delete_photo')}</button>` : '';
   content.innerHTML = `
@@ -1174,6 +1358,11 @@ function editProfile(): void {
       <div class="pf-field">
         <label class="pf-label">${t('profile_pilot_name')}</label>
         <input type="text" id="pf-name-input" class="pf-input" value="${escapeHtml(profile.name)}" placeholder="">
+      </div>
+      <div class="pf-field">
+        <label class="pf-label">${t('profile_maps')}</label>
+        <div class="page-search-bar" id="pf-map-search-bar"><input type="text" id="pf-map-search" placeholder=" " oninput="filterMaps()"><span id="pf-map-search-hint">${t('profile_map_search')}</span></div>
+        <div class="pf-maps-grid">${mapsGrid}</div>
       </div>
       <div class="pf-field">
         <label class="pf-label">${t('profile_modules')}</label>
@@ -1238,6 +1427,16 @@ function filterModules(): void {
   });
 }
 
+function filterMaps(): void {
+  const query = (document.getElementById('pf-map-search') as HTMLInputElement).value.toLowerCase().trim();
+  document.querySelectorAll<HTMLElement>('.pf-map-toggle').forEach(btn => {
+    const mapName = btn.dataset.map || '';
+    const map = DCS_MAPS.find(d => d.name === mapName);
+    const searchable = map ? `${map.name} ${map.abbr ?? ''} ${t(map.key)}`.toLowerCase() : mapName.toLowerCase();
+    btn.style.display = !query || searchable.includes(query) ? '' : 'none';
+  });
+}
+
 function cancelEditProfile(): void { profileEditing = false; pendingAvatarChange = undefined; renderProfileView(); }
 
 async function saveProfile(): Promise<void> {
@@ -1245,11 +1444,13 @@ async function saveProfile(): Promise<void> {
   const name = (document.getElementById('pf-name-input') as HTMLInputElement).value.trim();
   const modules = Array.from(document.querySelectorAll<HTMLElement>('.pf-module-toggle.selected'))
     .map(el => el.dataset.module!).filter(Boolean);
+  const maps = Array.from(document.querySelectorAll<HTMLElement>('.pf-map-toggle.selected'))
+    .map(el => el.dataset.map!).filter(Boolean);
   const avatar = pendingAvatarChange !== undefined
     ? (pendingAvatarChange ?? undefined)
     : profile.avatar;
   pendingAvatarChange = undefined;
-  profile = { ...profile, name, modules, avatar };
+  profile = { ...profile, name, modules, maps, avatar };
   updateProfileBtn();
   renderProfileView();
   renderSessions();
@@ -1337,6 +1538,13 @@ window.editProfile = editProfile;
 window.cancelEditProfile = cancelEditProfile;
 window.saveProfile = saveProfile;
 (window as any).filterModules = filterModules;
+(window as any).filterMaps = filterMaps;
+(window as any).toggleAircraftPanel = toggleAircraftPanel;
+(window as any).toggleAircraftType = toggleAircraftType;
+(window as any).removeAircraftType = removeAircraftType;
+(window as any).toggleMapPanel = toggleMapPanel;
+(window as any).toggleMapType = toggleMapType;
+(window as any).removeMapType = removeMapType;
 (window as any).uploadAvatar = uploadAvatar;
 (window as any).removeAvatar = removeAvatar;
 (window as any).setLanguage = setLanguage;
