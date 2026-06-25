@@ -26,6 +26,9 @@ Built with **Tauri v2** · **TypeScript** · **Vite** — Windows
 Download the latest installer from the [Releases](../../releases) page.  
 No setup required — all data is stored locally on your machine.
 
+The Windows desktop app is and will always remain free.  
+Future web and mobile versions may be offered under a paid plan.
+
 ## Build from source
 
 ```bash
