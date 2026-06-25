@@ -101,6 +101,10 @@
                 <input type="checkbox" id="st-import-profile" onchange="onSettingChange()">
                 <span data-i18n="settings_replace_profile">Remplacer mon profil lors d'un import JSON</span>
               </label>
+              <label class="pf-checkbox-label">
+                <input type="checkbox" id="st-import-maps-modules" onchange="onSettingChange()">
+                <span data-i18n="settings_import_maps_modules">Importer les modules et maps possédés</span>
+              </label>
               <div class="edit-actions" id="st-action-btns" style="margin-top:4px;display:none;">
                 <button class="btn-sm" onclick="saveSettings()" data-i18n="settings_save">Sauvegarder</button>
                 <button class="btn-sm btn-cancel" onclick="cancelSettings()" data-i18n="settings_cancel">Annuler</button>
@@ -181,8 +185,12 @@
             <div class="mission-picker-wrap" id="nf-mission-picker-wrap"></div>
           </div>
           <div class="notes-group">
+            <label class="edit-block-label" data-i18n="new_flight_map">Map</label>
+            <div id="nf-map-picker"></div>
+          </div>
+          <div class="notes-group">
             <label class="edit-block-label" data-i18n="new_flight_aircraft">Appareil(s) volé(s)</label>
-            <div id="nf-aircraft-picker" class="aircraft-picker-scroll"></div>
+            <div id="nf-aircraft-picker"></div>
           </div>
           <div class="notes-group">
             <label class="edit-block-label" data-i18n="new_flight_comment">Commentaire</label>
@@ -278,6 +286,10 @@
       <div class="debrief-field">
         <label class="debrief-label" data-i18n="debrief_aircraft">Appareil(s) volé(s)</label>
         <div id="debrief-aircraft-picker" class="aircraft-picker-scroll"></div>
+      </div>
+      <div class="debrief-field">
+        <label class="debrief-label" data-i18n="debrief_map">Map</label>
+        <div id="debrief-map-picker" class="aircraft-picker-scroll"></div>
       </div>
       <div class="debrief-field">
         <label class="debrief-label" data-i18n="debrief_missions">Type(s) de mission</label>
