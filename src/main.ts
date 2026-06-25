@@ -1177,7 +1177,7 @@ function editProfile(): void {
       </div>
       <div class="pf-field">
         <label class="pf-label">${t('profile_modules')}</label>
-        <input type="text" id="pf-module-search" class="pf-input" placeholder="${t('profile_module_search')}" oninput="filterModules()">
+        <div class="page-search-bar" id="pf-module-search-bar"><input type="text" id="pf-module-search" placeholder=" " oninput="filterModules()"><span id="pf-module-search-hint">${t('profile_module_search')}</span></div>
         <div class="pf-modules-grid">${grid}</div>
       </div>
       <div class="pf-edit-actions">
@@ -1358,10 +1358,64 @@ window.tbClose = () => getCurrentWindow().close();
 
 // ─── Démarrage ─────────────────────────────────────────────────────────────
 
+async function setupLang(lang: string): Promise<void> {
+  await setLang(lang);
+  const overlay = document.getElementById('lang-setup-overlay');
+  if (overlay) overlay.style.display = 'none';
+  applyStaticTranslations();
+}
+(window as unknown as Record<string, unknown>).setupLang = setupLang;
+
+function filterSettings(): void {
+  const query = ((document.getElementById('st-search-input') as HTMLInputElement)?.value || '').toLowerCase().trim();
+  document.querySelectorAll<HTMLElement>('#st-content .st-section').forEach(section => {
+    section.style.display = (!query || section.textContent?.toLowerCase().includes(query)) ? '' : 'none';
+  });
+}
+(window as unknown as Record<string, unknown>).filterSettings = filterSettings;
+
+function showLangOverlay(): void {
+  const overlay = document.getElementById('lang-setup-overlay');
+  if (overlay) overlay.style.display = 'flex';
+}
+
+function applyDevMode(): void {
+  const active = localStorage.getItem('devMode') === '1';
+  const panel = document.getElementById('dev-tools-panel');
+  const btn = document.getElementById('dev-mode-btn');
+  if (panel) panel.style.display = active ? 'block' : 'none';
+  if (btn) {
+    btn.textContent = active ? t('dev_mode_disable') : t('dev_mode_enable');
+    btn.classList.toggle('btn-cancel', active);
+  }
+}
+
+function toggleDevMode(): void {
+  const active = localStorage.getItem('devMode') === '1';
+  if (active) localStorage.removeItem('devMode');
+  else localStorage.setItem('devMode', '1');
+  applyDevMode();
+}
+
+(window as unknown as Record<string, unknown>).showLangOverlay = showLangOverlay;
+
+function resetFirstLaunch(): void {
+  localStorage.removeItem('lang');
+  location.reload();
+}
+(window as unknown as Record<string, unknown>).resetFirstLaunch = resetFirstLaunch;
+(window as unknown as Record<string, unknown>).toggleDevMode = toggleDevMode;
+
 window.addEventListener('DOMContentLoaded', async () => {
+  const isFirstLaunch = !localStorage.getItem('lang');
   await initI18n();
   await loadFromFile();
   applyStaticTranslations();
+  if (isFirstLaunch) {
+    const overlay = document.getElementById('lang-setup-overlay');
+    if (overlay) overlay.style.display = 'flex';
+  }
+  applyDevMode();
   const savedTheme = localStorage.getItem('theme') || 'parchment';
   setTheme(savedTheme);
   // Set dynamic initial state labels
