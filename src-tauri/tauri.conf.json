@@ -1,6 +1,6 @@
 {
   "productName": "Flight Log",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "identifier": "com.flight.log",
 
   "build": {

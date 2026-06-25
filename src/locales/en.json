@@ -1,7 +1,7 @@
 {
   "app_title": "Flight Log",
   "total_label": "Total:",
-  "nav_history": "History",
+  "nav_history": "Log",
   "nav_new_flight": "New flight",
   "nav_settings": "Settings",
   "session_waiting": "Waiting",
@@ -10,7 +10,7 @@
   "session_stop": "■ OFF",
   "search_hint": "Search a flight by name, #number or description...",
   "search_placeholder": "Search…",
-  "history_title": "History",
+  "history_title": "Log",
   "history_empty": "No sessions recorded",
   "history_no_results": "No flight matches the search.",
   "history_count": "{{count}} session(s) · {{duration}}",
@@ -119,5 +119,12 @@
   "save_indicator": "✓ Saved",
   "ctx_cut": "Cut",
   "ctx_copy": "Copy",
-  "ctx_paste": "Paste"
+  "ctx_paste": "Paste",
+  "st_search_ph": "Search a setting",
+  "settings_dev_section": "Developer / Debug",
+  "dev_mode_enable": "Developer mode",
+  "dev_mode_disable": "Developer mode",
+  "dev_lang_setup": "Language Setup",
+  "dev_reset_launch": "Reset first launch",
+  "lang_setup_title": "Choose your language"
 }

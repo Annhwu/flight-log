@@ -119,5 +119,12 @@
   "save_indicator": "✓ Sauvegardé",
   "ctx_cut": "Couper",
   "ctx_copy": "Copier",
-  "ctx_paste": "Coller"
+  "ctx_paste": "Coller",
+  "st_search_ph": "Rechercher un paramètre",
+  "settings_dev_section": "Développeur / Debug",
+  "dev_mode_enable": "Mod développeur",
+  "dev_mode_disable": "Mod développeur",
+  "dev_lang_setup": "Language Setup",
+  "dev_reset_launch": "Réinitialiser premier démarrage",
+  "lang_setup_title": "Choisissez votre langue"
 }
