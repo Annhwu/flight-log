@@ -155,6 +155,11 @@
                 <input type="checkbox" id="toggle-prerelease" onchange="setPrereleasePreference(this.checked)">
                 <span data-i18n="update_include_prerelease">Inclure les pré-versions</span>
               </label>
+              <div style="margin-top:8px;font-size:0.82em;color:var(--ink2);display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <span data-i18n="tray_pref_label">À la fermeture (session active) :</span>
+                <span id="tray-pref-value" style="color:var(--ink);font-weight:500;"></span>
+                <button class="btn-sm" id="btn-reset-tray" onclick="resetTrayPreference()" data-i18n="tray_pref_reset">Réinitialiser</button>
+              </div>
             </div>
           </div>
           <div class="st-section">
@@ -304,6 +309,25 @@
       </div>
     </div>
   </div>
+  <!-- Tray close dialog — shown when closing with an active session -->
+  <div id="tray-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);align-items:center;justify-content:center;z-index:310;">
+    <div class="confirm-modal" style="max-width:420px;width:100%;">
+      <div style="font-weight:600;font-size:1em;margin-bottom:8px;" data-i18n="tray_session_title">Session en cours</div>
+      <p style="font-size:0.88em;color:var(--ink2);margin:0 0 14px;" data-i18n="tray_session_msg">Une session est en cours d'enregistrement. Que souhaitez-vous faire ?</p>
+      <div id="tray-actions" class="st-confirm-actions" style="flex-direction:column;gap:7px;align-items:stretch;">
+        <button class="btn-sm" onclick="trayChooseMinimize()" data-i18n="tray_minimize_btn">Minimiser dans la barre des tâches</button>
+        <div>
+          <button class="btn-sm btn-cancel" onclick="trayChooseStopClose()" data-i18n="tray_stop_close_btn">Arrêter et fermer</button>
+          <span style="font-size:0.78em;color:var(--ink3);margin-left:8px;" data-i18n="tray_stop_close_hint">L'enregistrement sera perdu</span>
+        </div>
+      </div>
+      <label class="pf-checkbox-label" style="margin-top:12px;font-size:0.82em;">
+        <input type="checkbox" id="tray-remember">
+        <span data-i18n="tray_remember">Se souvenir de mon choix</span>
+      </label>
+    </div>
+  </div>
+
   <div id="update-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);align-items:center;justify-content:center;z-index:300;">
     <div class="confirm-modal" style="max-width:520px;width:100%;">
       <div style="font-weight:600;font-size:1em;margin-bottom:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
