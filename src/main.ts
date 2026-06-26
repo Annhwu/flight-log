@@ -2302,6 +2302,11 @@ window.addEventListener('DOMContentLoaded', async () => {
     searchBar.addEventListener('mouseleave', () => searchBar.classList.remove('hovered'));
   }
 
+  invoke<string>('get_app_version').then(v => {
+    const el = document.getElementById('st-version');
+    if (el) el.textContent = `v${v}`;
+  }).catch(() => {});
+
   // Startup update check (silent — read pref from localStorage)
   const _inclPre = localStorage.getItem('updateIncludePrerelease') === '1';
   invoke<UpdateInfo | null>('check_update', { includePrerelease: _inclPre })

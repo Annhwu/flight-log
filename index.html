@@ -78,7 +78,10 @@
       </div>
       <div id="settings-page" style="display:none">
         <div id="st-header">
-          <div id="st-title" data-i18n="settings_title">Paramètres</div>
+          <div style="display:flex;align-items:baseline;gap:10px;">
+            <div id="st-title" data-i18n="settings_title">Paramètres</div>
+            <span id="st-version" style="font-size:11px;color:var(--ink3);font-family:'Inter',sans-serif;"></span>
+          </div>
           <div class="page-search-bar" id="st-search-bar">
             <input type="text" id="st-search-input" placeholder=" " oninput="filterSettings()">
             <span id="st-search-hint" data-i18n="st_search_ph">Rechercher un paramètre</span>
