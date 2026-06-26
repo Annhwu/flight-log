@@ -47,6 +47,12 @@ export function getLang() {
 export function getLocale() {
     return LOCALE_MAP[getLang()] || 'en-GB';
 }
+export function tAll(key) {
+    return [fr, en, ru]
+        .map(loc => loc[key])
+        .filter(v => typeof v === 'string')
+        .map(v => v.toLowerCase());
+}
 export function applyStaticTranslations() {
     document.querySelectorAll('[data-i18n]').forEach(el => {
         el.textContent = t(el.dataset.i18n);

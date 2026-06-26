@@ -198,5 +198,8 @@
   "tray_pref_label": "À la fermeture (session active) :",
   "tray_pref_minimize": "Minimiser",
   "tray_pref_stop_close": "Arrêter et fermer",
-  "tray_pref_reset": "Réinitialiser"
+  "tray_pref_reset": "Réinitialiser",
+  "tray_menu_start": "Démarrer le vol",
+  "tray_menu_stop": "Arrêter le vol",
+  "tray_menu_quit": "Fermer"
 }

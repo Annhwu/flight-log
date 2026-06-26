@@ -4,7 +4,7 @@ export { };
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { listen } from '@tauri-apps/api/event';
-import { initI18n, t, setLang, getLocale, applyStaticTranslations } from './i18n';
+import { initI18n, t, tAll, setLang, getLocale, applyStaticTranslations } from './i18n';
 import { boringAvatar } from './vendor/avatar';
 import { mdParse } from './vendor/markdown';
 
@@ -462,6 +462,11 @@ function updateTotal(): void {
 
 // ─── Session ON/OFF ────────────────────────────────────────────────────────
 
+function syncTrayLabels(): void {
+  const session = activeStart ? t('tray_menu_stop') : t('tray_menu_start');
+  invoke('set_tray_labels', { session, quit: t('tray_menu_quit') }).catch(() => {});
+}
+
 function toggleSession(): void {
   const btn = document.getElementById('btn-toggle') as HTMLButtonElement;
   if (!activeStart) {
@@ -474,6 +479,7 @@ function toggleSession(): void {
     if (siTime) siTime.textContent = fmtDate(activeStart) + ' — ' + fmtTime(activeStart);
     elapsedInterval = window.setInterval(updateElapsed, 1000);
     updateElapsed();
+    syncTrayLabels();
   } else {
     const end = new Date();
     if (elapsedInterval !== null) clearInterval(elapsedInterval);
@@ -492,6 +498,7 @@ function toggleSession(): void {
     if (siLabel) siLabel.textContent = t('session_waiting');
     if (siTime) siTime.textContent = '--:--:--';
     if (siElapsed) siElapsed.textContent = '';
+    syncTrayLabels();
     openDebrief();
   }
 }
@@ -597,11 +604,18 @@ function renderSessions(): void {
           || (s.name?.toLowerCase().includes(query) ?? false)
           || (s.notes?.toLowerCase().includes(query) ?? false)
           || (s.aircraft?.some(a => a.toLowerCase().includes(query)) ?? false)
-          || (s.missionTypes?.some(mt => mt.toLowerCase().includes(query)) ?? false);
+          || (s.missionTypes?.some(mt => mt.toLowerCase().includes(query)) ?? false)
+          || (s.maps?.some(m => {
+               const mp = DCS_MAPS.find(d => d.name === m);
+               return m.toLowerCase().includes(query)
+                 || (mp ? tAll(mp.key).some(tr => tr.includes(query)) : false);
+             }) ?? false);
       })
     : numbered;
 
-  sc.textContent = t('history_count', { count: sessions.length, duration: minsToHM(totalSAMin()) });
+  const displayCount = query ? filtered.length : sessions.length;
+  const displayDur   = query ? filtered.reduce((a, { s }) => a + (s.durationMin || 0), 0) : totalSAMin();
+  sc.textContent = t('history_count', { count: displayCount, duration: minsToHM(displayDur) });
 
   if (!filtered.length) {
     list.innerHTML = `<div id="empty-msg">${t('history_no_results')}</div>`;
@@ -1531,6 +1545,7 @@ async function saveProfile(): Promise<void> {
 async function setLanguage(lang: string): Promise<void> {
   await setLang(lang);
   applyStaticTranslations();
+  syncTrayLabels();
   renderSessions();
   // Timer state
   const siLabel = document.getElementById('si-label');
@@ -1555,7 +1570,7 @@ function getTextColorForBg(hex: string): string {
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
-  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.5 ? '#111108' : '#ffffff';
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.5 ? '#111108' : '#e8dcc8';
 }
 
 function loadTagColors(): Record<string, { light: string; dark: string }> {
@@ -2330,4 +2345,6 @@ window.addEventListener('DOMContentLoaded', async () => {
       showUpdateModal(event.payload, true);
     }
   });
+
+  syncTrayLabels();
 });

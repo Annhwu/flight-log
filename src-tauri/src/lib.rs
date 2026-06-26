@@ -2,7 +2,8 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::{Emitter, Manager};
-use tauri::tray::{TrayIconBuilder, TrayIconEvent};
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
 
 const GITHUB_REPO: &str = "Annhwu/flight-log";
 
@@ -29,6 +30,11 @@ pub struct UpdateInfo {
 pub struct UpdateState {
     pub info: Mutex<Option<UpdateInfo>>,
     pub dismissed: Mutex<bool>,
+}
+
+struct TrayItems {
+    session: Mutex<MenuItem<tauri::Wry>>,
+    quit:    Mutex<MenuItem<tauri::Wry>>,
 }
 
 
@@ -268,6 +274,12 @@ fn get_app_version(app: tauri::AppHandle) -> String {
     app.package_info().version.to_string()
 }
 
+#[tauri::command]
+fn set_tray_labels(state: tauri::State<'_, TrayItems>, session: String, quit: String) {
+    if let Ok(item) = state.session.lock() { let _ = item.set_text(&session); }
+    if let Ok(item) = state.quit.lock()    { let _ = item.set_text(&quit);    }
+}
+
 // ─── Data commands ────────────────────────────────────────────────────────────
 
 fn data_path(app: &tauri::AppHandle) -> PathBuf {
@@ -311,12 +323,43 @@ pub fn run() {
         })
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
+            let session_item = MenuItem::with_id(app, "toggle_session", "Démarrer le vol", true, None::<&str>)?;
+            let sep          = PredefinedMenuItem::separator(app)?;
+            let quit_item    = MenuItem::with_id(app, "quit", "Fermer", true, None::<&str>)?;
+            let tray_menu    = Menu::with_items(app, &[&session_item, &sep, &quit_item])?;
+            app.manage(TrayItems {
+                session: Mutex::new(session_item),
+                quit:    Mutex::new(quit_item),
+            });
+
             let handle = app.handle().clone();
             TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
                 .tooltip("Flight Log")
+                .menu(&tray_menu)
+                .menu_on_left_click(false)
+                .on_menu_event(|app, event| {
+                    match event.id().0.as_str() {
+                        "toggle_session" => {
+                            if let Some(w) = app.get_webview_window("main") {
+                                let _ = w.show();
+                                let _ = w.unminimize();
+                                let _ = w.set_focus();
+                                let _ = w.eval("if(window.toggleSession)window.toggleSession()");
+                            }
+                        }
+                        "quit" => {
+                            if let Some(w) = app.get_webview_window("main") {
+                                let _ = w.show();
+                                let _ = w.set_focus();
+                                let _ = w.eval("if(window.tbClose)window.tbClose()");
+                            }
+                        }
+                        _ => {}
+                    }
+                })
                 .on_tray_icon_event(move |_tray, event| {
-                    if let TrayIconEvent::Click { .. } = event {
+                    if let TrayIconEvent::Click { button: MouseButton::Left, .. } = event {
                         if let Some(window) = handle.get_webview_window("main") {
                             let _ = window.show();
                             let _ = window.unminimize();
@@ -338,6 +381,7 @@ pub fn run() {
             minimize_to_tray,
             get_pending_update,
             get_app_version,
+            set_tray_labels,
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {

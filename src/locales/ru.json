@@ -198,5 +198,8 @@
   "tray_pref_label": "При закрытии (активный сеанс):",
   "tray_pref_minimize": "Свернуть",
   "tray_pref_stop_close": "Остановить и закрыть",
-  "tray_pref_reset": "Сбросить"
+  "tray_pref_reset": "Сбросить",
+  "tray_menu_start": "Начать вылет",
+  "tray_menu_stop": "Остановить вылет",
+  "tray_menu_quit": "Закрыть"
 }

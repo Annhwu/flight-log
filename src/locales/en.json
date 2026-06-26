@@ -198,5 +198,8 @@
   "tray_pref_label": "On close (active session):",
   "tray_pref_minimize": "Minimize",
   "tray_pref_stop_close": "Stop and close",
-  "tray_pref_reset": "Reset"
+  "tray_pref_reset": "Reset",
+  "tray_menu_start": "Start flight",
+  "tray_menu_stop": "Stop flight",
+  "tray_menu_quit": "Close"
 }
