@@ -3,6 +3,7 @@ export { };
 
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
+import { listen } from '@tauri-apps/api/event';
 import { initI18n, t, setLang, getLocale, applyStaticTranslations } from './i18n';
 import { boringAvatar } from './vendor/avatar';
 import { mdParse } from './vendor/markdown';
@@ -1996,7 +1997,25 @@ function setTheme(theme: string): void {
 
 window.tbMinimize = () => getCurrentWindow().minimize();
 window.tbMaximize = () => getCurrentWindow().toggleMaximize();
-window.tbClose = () => getCurrentWindow().close();
+window.tbClose = async () => {
+  if (activeStart) {
+    const pref = localStorage.getItem('traySessionBehavior');
+    if (pref === 'minimize') {
+      await invoke('minimize_to_tray');
+      return;
+    }
+    const pendingUpdate = await invoke<UpdateInfo | null>('get_pending_update').catch(() => null);
+    if (pref === 'stop-close') {
+      _discardActiveSession();
+      if (pendingUpdate) { showUpdateModal(pendingUpdate, true); return; }
+      await invoke('force_close');
+      return;
+    }
+    _showTrayCloseDialog(pendingUpdate);
+    return;
+  }
+  await getCurrentWindow().close();
+};
 
 // ─── Démarrage ─────────────────────────────────────────────────────────────
 
@@ -2174,6 +2193,68 @@ function setPrereleasePreference(enabled: boolean): void {
 }
 (window as unknown as Record<string, unknown>).setPrereleasePreference = setPrereleasePreference;
 
+// ─── Tray close ──────────────────────────────────────────────────────────────
+
+let _pendingUpdateOnClose: UpdateInfo | null = null;
+
+function _discardActiveSession(): void {
+  if (elapsedInterval) { clearInterval(elapsedInterval); elapsedInterval = null; }
+  activeStart = null;
+  const siLabel = document.getElementById('si-label');
+  const btn = document.getElementById('btn-toggle') as HTMLButtonElement | null;
+  if (siLabel) siLabel.textContent = t('session_waiting');
+  if (btn) btn.textContent = t('session_start');
+}
+
+function _showTrayCloseDialog(pendingUpdate: UpdateInfo | null): void {
+  _pendingUpdateOnClose = pendingUpdate;
+  const overlay = document.getElementById('tray-overlay') as HTMLElement;
+  overlay.style.display = 'flex';
+  const rem = document.getElementById('tray-remember') as HTMLInputElement | null;
+  if (rem) rem.checked = false;
+}
+
+async function trayChooseMinimize(): Promise<void> {
+  const rem = (document.getElementById('tray-remember') as HTMLInputElement)?.checked;
+  if (rem) { localStorage.setItem('traySessionBehavior', 'minimize'); _refreshTrayPrefRow(); }
+  document.getElementById('tray-overlay')!.style.display = 'none';
+  await invoke('minimize_to_tray');
+}
+(window as unknown as Record<string, unknown>).trayChooseMinimize = trayChooseMinimize;
+
+async function trayChooseStopClose(): Promise<void> {
+  const rem = (document.getElementById('tray-remember') as HTMLInputElement)?.checked;
+  if (rem) { localStorage.setItem('traySessionBehavior', 'stop-close'); _refreshTrayPrefRow(); }
+  document.getElementById('tray-overlay')!.style.display = 'none';
+  _discardActiveSession();
+  const upd = _pendingUpdateOnClose;
+  _pendingUpdateOnClose = null;
+  if (upd) {
+    showUpdateModal(upd, true);
+  } else {
+    await invoke('force_close');
+  }
+}
+(window as unknown as Record<string, unknown>).trayChooseStopClose = trayChooseStopClose;
+
+function resetTrayPreference(): void {
+  localStorage.removeItem('traySessionBehavior');
+  _refreshTrayPrefRow();
+}
+(window as unknown as Record<string, unknown>).resetTrayPreference = resetTrayPreference;
+
+function _refreshTrayPrefRow(): void {
+  const val = document.getElementById('tray-pref-value') as HTMLElement | null;
+  const btn = document.getElementById('btn-reset-tray') as HTMLButtonElement | null;
+  const pref = localStorage.getItem('traySessionBehavior');
+  if (val) {
+    if (pref === 'minimize')    val.textContent = t('tray_pref_minimize');
+    else if (pref === 'stop-close') val.textContent = t('tray_pref_stop_close');
+    else                        val.textContent = '—';
+  }
+  if (btn) btn.disabled = !pref;
+}
+
 async function checkUpdateManual(): Promise<void> {
   const btn = document.getElementById('btn-check-update') as HTMLButtonElement | null;
   const msg = document.getElementById('update-status-msg') as HTMLElement | null;
@@ -2237,8 +2318,11 @@ window.addEventListener('DOMContentLoaded', async () => {
   const _preToggle = document.getElementById('toggle-prerelease') as HTMLInputElement | null;
   if (_preToggle) _preToggle.checked = _inclPre;
 
-  // Close-triggered update check
-  getCurrentWindow().listen<UpdateInfo>('update-check-on-close', (event) => {
+  // Refresh tray preference display in Settings
+  _refreshTrayPrefRow();
+
+  // Update-on-close: Rust emits this when a pending update exists and user closes
+  listen<UpdateInfo>('update-check-on-close', (event) => {
     const overlay = document.getElementById('update-overlay') as HTMLElement;
     if (overlay.style.display === 'flex') {
       _showUpdateActions(true);

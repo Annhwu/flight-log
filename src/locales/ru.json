@@ -188,5 +188,15 @@
   "update_installing": "Загрузка и установка...",
   "update_no_sha": "Недоступно",
   "dev_preview_update": "Превью обновления",
-  "update_include_prerelease": "Включить пре-релизы"
+  "update_include_prerelease": "Включить пре-релизы",
+  "tray_session_title": "Сеанс идёт",
+  "tray_session_msg": "Сеанс записи активен. Что вы хотите сделать?",
+  "tray_minimize_btn": "Свернуть в системный трей",
+  "tray_stop_close_btn": "Остановить и закрыть",
+  "tray_stop_close_hint": "Запись будет потеряна",
+  "tray_remember": "Запомнить мой выбор",
+  "tray_pref_label": "При закрытии (активный сеанс):",
+  "tray_pref_minimize": "Свернуть",
+  "tray_pref_stop_close": "Остановить и закрыть",
+  "tray_pref_reset": "Сбросить"
 }
