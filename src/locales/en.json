@@ -188,5 +188,15 @@
   "update_installing": "Downloading and installing...",
   "update_no_sha": "Not available",
   "dev_preview_update": "Preview update modal",
-  "update_include_prerelease": "Include pre-releases"
+  "update_include_prerelease": "Include pre-releases",
+  "tray_session_title": "Session in progress",
+  "tray_session_msg": "A recording session is active. What do you want to do?",
+  "tray_minimize_btn": "Minimize to system tray",
+  "tray_stop_close_btn": "Stop and close",
+  "tray_stop_close_hint": "Recording will be lost",
+  "tray_remember": "Remember my choice",
+  "tray_pref_label": "On close (active session):",
+  "tray_pref_minimize": "Minimize",
+  "tray_pref_stop_close": "Stop and close",
+  "tray_pref_reset": "Reset"
 }
