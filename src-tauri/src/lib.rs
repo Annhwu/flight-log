@@ -337,7 +337,7 @@ pub fn run() {
                 .icon(app.default_window_icon().unwrap().clone())
                 .tooltip("Flight Log")
                 .menu(&tray_menu)
-                .menu_on_left_click(false)
+                .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| {
                     match event.id().0.as_str() {
                         "toggle_session" => {
