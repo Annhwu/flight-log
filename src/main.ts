@@ -515,9 +515,9 @@ function openDebrief(): void {
   (document.getElementById('debrief-name') as HTMLInputElement).value = '';
   (document.getElementById('debrief-notes') as HTMLTextAreaElement).value = '';
   const picker = document.getElementById('debrief-aircraft-picker');
-  if (picker) picker.innerHTML = renderAircraftPickerHtml([]);
+  if (picker) picker.innerHTML = renderAircraftPickerExpandable('debrief', []);
   const mapPicker = document.getElementById('debrief-map-picker');
-  if (mapPicker) mapPicker.innerHTML = renderMapPickerHtml([]);
+  if (mapPicker) mapPicker.innerHTML = renderMapPickerExpandable('debrief', []);
   const mwrap = document.getElementById('debrief-mission-picker-wrap');
   if (mwrap) mwrap.innerHTML = renderMissionPickerHtml(0, []);
   document.getElementById('debrief-overlay')!.classList.add('open');
@@ -528,9 +528,9 @@ async function confirmDebrief(): Promise<void> {
   if (!pendingSession) return;
   pendingSession.name  = (document.getElementById('debrief-name') as HTMLInputElement).value.trim() || undefined;
   pendingSession.notes = (document.getElementById('debrief-notes') as HTMLTextAreaElement).value.trim() || undefined;
-  pendingSession.aircraft = Array.from(document.querySelectorAll<HTMLElement>('#debrief-aircraft-picker .aircraft-toggle.selected')).map(el => el.dataset.aircraft!).filter(Boolean);
+  pendingSession.aircraft = Array.from(document.querySelectorAll<HTMLElement>('#aircraft-panel-debrief .mission-chip.selected')).map(el => el.dataset.aircraft!).filter(Boolean);
   if (!pendingSession.aircraft.length) pendingSession.aircraft = undefined;
-  const debriefMaps = Array.from(document.querySelectorAll<HTMLElement>('#debrief-map-picker .aircraft-toggle.selected')).map(el => el.dataset.map!).filter(Boolean);
+  const debriefMaps = Array.from(document.querySelectorAll<HTMLElement>('#map-panel-debrief .mission-chip.selected')).map(el => el.dataset.map!).filter(Boolean);
   pendingSession.maps = debriefMaps.length ? debriefMaps : undefined;
   const mt = Array.from(document.querySelectorAll<HTMLElement>('#emission-tags-0 [data-mission]')).map(el => el.dataset.mission!).filter(Boolean);
   pendingSession.missionTypes = mt.length ? mt : undefined;
