@@ -1269,27 +1269,6 @@ function removeMissionType(id: number, type: string): void {
   chip?.classList.remove('selected');
 }
 
-function renderAircraftPickerHtml(selected: string[]): string {
-  if (!profile.modules.length) return `<span class="pf-empty">${t('profile_no_modules_configured')}</span>`;
-  const ownedMods = DCS_MODULES.filter(mod => getEffectiveOwnedModuleNames().has(mod.name));
-  const modelsSet = new Set<string>();
-  ownedMods.forEach(mod => (mod.variants ?? [mod.name]).forEach(m => modelsSet.add(m)));
-  return Array.from(modelsSet).sort().map(model => {
-    const sel = selected.includes(model);
-    return `<button type="button" class="aircraft-toggle${sel ? ' selected' : ''}" onclick="this.classList.toggle('selected')" data-aircraft="${escapeHtml(model)}">${escapeHtml(model)}<img class="aircraft-toggle-close" src="./icons/close.png" alt="×"></button>`;
-  }).join('');
-}
-
-
-function renderMapPickerHtml(selected: string[]): string {
-  if (!profile.maps.length) return `<span class="pf-empty">${t('profile_no_maps_configured')}</span>`;
-  return profile.maps.map(mapName => {
-    const map = DCS_MAPS.find(d => d.name === mapName);
-    const label = map ? (map.abbr ?? t(map.key)) : mapName;
-    const sel = selected.includes(mapName);
-    return `<button type="button" class="aircraft-toggle${sel ? ' selected' : ''}" onclick="this.classList.toggle('selected')" data-map="${escapeHtml(mapName)}">${escapeHtml(label)}<img class="aircraft-toggle-close" src="./icons/close.png" alt="×"></button>`;
-  }).join('');
-}
 
 // ─── Expandable pickers (cards & nouveau vol) ───────────────────────────────
 
