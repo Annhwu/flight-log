@@ -4,8 +4,26 @@ export { };
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { initI18n, t, setLang, getLocale, applyStaticTranslations } from './i18n';
+import { boringAvatar } from './vendor/avatar';
+import { mdParse } from './vendor/markdown';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
+
+interface UpdateAsset {
+  name: string;
+  size: number;
+  size_fmt: string;
+  download_url: string;
+  sha256: string;
+}
+
+interface UpdateInfo {
+  current_version: string;
+  new_version: string;
+  body: string;
+  is_prerelease: boolean;
+  asset: UpdateAsset;
+}
 
 interface Session {
   id: number;
@@ -208,51 +226,6 @@ function fmtDateInput(d: Date): string { return d.getFullYear() + '-' + pad(d.ge
 function minsToHM(m: number): string { const h = Math.floor(m / 60), mm = Math.round(m % 60); return pad(h) + 'h ' + pad(mm) + 'm'; }
 function secsToHMS(s: number): string { const h = Math.floor(s / 3600), mm = Math.floor((s % 3600) / 60), ss = Math.round(s % 60); return pad(h) + 'h ' + pad(mm) + 'm ' + pad(ss) + 's'; }
 function durLabel(min: number): string { const d = Math.floor(min / 1440), h = Math.floor((min % 1440) / 60), m = Math.round(min % 60); return (d > 0 ? d + 'j ' : '') + pad(h) + 'h ' + pad(m) + 'm'; }
-
-function generateBoringAvatar(seed: string, size = 80): string {
-  const PALETTE = ['#92A1C6', '#146A7C', '#F0AB3D', '#C271B4', '#C20D90'];
-  const S = 36;
-
-  function hash(str: string): number {
-    let h = 0;
-    for (let i = 0; i < str.length; i++) { h = ((h << 5) - h) + str.charCodeAt(i); h |= 0; }
-    return Math.abs(h);
-  }
-  function unit(n: number, range: number, idx: number): number {
-    const v = n % (idx * range);
-    return v > range ? v % range : v;
-  }
-  function color(n: number): string { return PALETTE[n % PALETTE.length]; }
-  function contrast(hex: string): string {
-    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
-    return (0.299*r + 0.587*g + 0.114*b) / 255 > 0.5 ? '#000000' : '#ffffff';
-  }
-
-  const n = hash(seed || 'pilot');
-  const bgColor   = color(n + 13);
-  const wrapColor = color(n);
-  const faceColor = contrast(wrapColor);
-  const preX = unit(n, 10, 1), preY = unit(n, 10, 2);
-  const tx = preX < 5 ? preX + S * 0.1 : preX;
-  const ty = preY < 5 ? preY + S * 0.1 : preY;
-  const rot   = unit(n, 360, 3);
-  const scale = 1 + unit(n, Math.floor(S / 12), 4) / 10;
-  const isCircle   = unit(n, 2, 14);
-  const isMouthOpen = unit(n, 2, 13);
-  const eyeSpread  = unit(n, 10, 12);
-  const faceRot = unit(n, 10, 6);
-  const ftx = tx > S / 6 ? tx / 2 : unit(n, 8, 7);
-  const fty = ty > S / 6 ? ty / 2 : unit(n, 7, 8);
-  const rx = isCircle ? S / 2 : S / 6;
-  const mid = S / 2;
-  const id = 'm' + (n % 99999);
-
-  const mouth = isMouthOpen
-    ? `<path d="M15 ${19 + eyeSpread}c2 1 4 1 6 0" stroke="${faceColor}" fill="none" stroke-linecap="round"/>`
-    : `<path d="M13,${19 + eyeSpread} a1,0.75 0 0,0 10,0" fill="${faceColor}"/>`;
-
-  return `<svg viewBox="0 0 ${S} ${S}" xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}"><mask id="${id}"><rect width="${S}" height="${S}" rx="${S*2}" fill="#fff"/></mask><g mask="url(#${id})"><rect width="${S}" height="${S}" fill="${bgColor}"/><rect x="0" y="0" width="${S}" height="${S}" transform="translate(${tx} ${ty}) rotate(${rot} ${mid} ${mid}) scale(${scale})" fill="${wrapColor}" rx="${rx}"/><g transform="translate(${ftx} ${fty}) rotate(${faceRot} ${mid} ${mid})">${mouth}<rect x="${14-eyeSpread}" y="14" width="1.5" height="2" rx="1" fill="${faceColor}"/><rect x="${20+eyeSpread}" y="14" width="1.5" height="2" rx="1" fill="${faceColor}"/></g></g></svg>`;
-}
 
 // ─── Sauvegarde automatique via Tauri ──────────────────────────────────────
 
@@ -853,7 +826,7 @@ function updateProfileBtn(): void {
   if (!btn) return;
   const src = profile.avatar
     ? profile.avatar
-    : (() => { const svg = generateBoringAvatar(profile.name || 'pilot', 32); return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg))); })();
+    : (() => { const svg = boringAvatar(profile.name || 'pilot', 32); return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg))); })();
   btn.innerHTML = `<img src="${src}" alt="profil" style="width:100%;height:100%;border-radius:50%;object-fit:cover;display:block;">`;
 }
 
@@ -1387,7 +1360,7 @@ function removeMapType(contextId: string, mapName: string): void {
 
 function avatarHtml(name: string, avatar?: string, size = 80): string {
   if (avatar) return `<img class="pf-avatar-img" src="${avatar}" alt="avatar" width="${size}" height="${size}">`;
-  const svgRaw = generateBoringAvatar(name || 'pilot', size);
+  const svgRaw = boringAvatar(name || 'pilot', size);
   const b64 = btoa(unescape(encodeURIComponent(svgRaw)));
   return `<img class="pf-avatar-img" src="data:image/svg+xml;base64,${b64}" alt="avatar" width="${size}" height="${size}">`;
 }
@@ -2090,6 +2063,138 @@ function factoryReset(): void {
 (window as unknown as Record<string, unknown>).factoryReset = factoryReset;
 (window as unknown as Record<string, unknown>).toggleDevMode = toggleDevMode;
 
+// ─── Auto-update ─────────────────────────────────────────────────────────────
+
+function _showUpdateActions(isClosing: boolean): void {
+  const el = document.getElementById('update-actions');
+  if (!el) return;
+  if (isClosing) {
+    el.innerHTML =
+      `<button class="btn-sm" onclick="installUpdate()">${escapeHtml(t('update_install_close'))}</button>` +
+      `<button class="btn-sm btn-cancel" onclick="forceCloseApp()">${escapeHtml(t('update_skip_close'))}</button>`;
+  } else {
+    el.innerHTML =
+      `<button class="btn-sm" onclick="installUpdate()">${escapeHtml(t('update_install_btn'))}</button>` +
+      `<button class="btn-sm btn-cancel" onclick="dismissUpdateModal()">${escapeHtml(t('update_later_btn'))}</button>`;
+  }
+}
+
+function showUpdateModal(info: UpdateInfo, isClosing: boolean): void {
+  const overlay  = document.getElementById('update-overlay') as HTMLElement;
+  const badge    = document.getElementById('update-version-badge') as HTMLElement;
+  const preBadge = document.getElementById('update-prerelease-badge') as HTMLElement;
+  const body     = document.getElementById('update-body') as HTMLElement;
+  const aName    = document.getElementById('update-asset-name') as HTMLElement;
+  const aSize    = document.getElementById('update-asset-size') as HTMLElement;
+  const aSha     = document.getElementById('update-asset-sha') as HTMLElement;
+
+  badge.textContent               = `${info.current_version} → ${info.new_version}`;
+  preBadge.style.display          = info.is_prerelease ? 'inline-block' : 'none';
+  body.innerHTML                  = mdParse(info.body) || '<p>—</p>';
+  aName.textContent               = info.asset.name;
+  aSize.textContent               = info.asset.size_fmt;
+  aSha.textContent                = info.asset.sha256 || t('update_no_sha');
+
+  overlay.dataset.downloadUrl     = info.asset.download_url;
+  overlay.dataset.sha256          = info.asset.sha256;
+  overlay.dataset.fileName        = info.asset.name;
+
+  document.getElementById('update-installing-msg')!.style.display = 'none';
+  _showUpdateActions(isClosing);
+  overlay.style.display = 'flex';
+}
+(window as unknown as Record<string, unknown>).showUpdateModal = showUpdateModal;
+
+async function installUpdate(): Promise<void> {
+  const overlay = document.getElementById('update-overlay') as HTMLElement;
+  const actions = document.getElementById('update-actions') as HTMLElement;
+  const msg     = document.getElementById('update-installing-msg') as HTMLElement;
+
+  actions.style.display = 'none';
+  msg.style.display = '';
+
+  try {
+    await invoke('download_and_install', {
+      downloadUrl:      overlay.dataset.downloadUrl,
+      expectedSha256:   overlay.dataset.sha256,
+      fileName:         overlay.dataset.fileName,
+    });
+  } catch (err) {
+    msg.style.display = 'none';
+    actions.style.display = '';
+    alert(String(err));
+  }
+}
+(window as unknown as Record<string, unknown>).installUpdate = installUpdate;
+
+async function dismissUpdateModal(): Promise<void> {
+  document.getElementById('update-overlay')!.style.display = 'none';
+  await invoke('dismiss_update');
+}
+(window as unknown as Record<string, unknown>).dismissUpdateModal = dismissUpdateModal;
+
+async function forceCloseApp(): Promise<void> {
+  await invoke('force_close');
+}
+(window as unknown as Record<string, unknown>).forceCloseApp = forceCloseApp;
+
+async function previewUpdateModal(): Promise<void> {
+  const ver = await invoke<string>('get_app_version').catch(() => '1.0.5');
+  const next = bumpPatchVersion(ver);
+  const inclPre = localStorage.getItem('updateIncludePrerelease') === '1';
+  const fake: UpdateInfo = {
+    current_version: ver,
+    new_version: inclPre ? `${next}-beta.1` : next,
+    is_prerelease: inclPre,
+    body: `## Nouveautés\n\n- Rendu Markdown dans la modale de mise à jour\n- Option pré-version dans les paramètres\n- Corrections diverses\n\n## Correctifs\n\n- Fix crash au démarrage sur Windows 11\n- Fix couleurs des tags non appliquées après import JSON\n\n---\n\n**SHA-256** vérification automatique avant installation.`,
+    asset: {
+      name: `flight-log_${inclPre ? next + '-beta.1' : next}_x64_en-US.msi`,
+      size: 14_200_000,
+      size_fmt: '14.2 MB',
+      download_url: '',
+      sha256: 'aabbccdd112233440011223344556677aabbccdd112233440011223344556677aa',
+    },
+  };
+  showUpdateModal(fake, false);
+}
+(window as unknown as Record<string, unknown>).previewUpdateModal = previewUpdateModal;
+
+function bumpPatchVersion(ver: string): string {
+  const p = ver.split('.');
+  p[p.length - 1] = String(Number(p[p.length - 1] || 0) + 1);
+  return p.join('.');
+}
+
+function setPrereleasePreference(enabled: boolean): void {
+  if (enabled) {
+    localStorage.setItem('updateIncludePrerelease', '1');
+  } else {
+    localStorage.removeItem('updateIncludePrerelease');
+  }
+}
+(window as unknown as Record<string, unknown>).setPrereleasePreference = setPrereleasePreference;
+
+async function checkUpdateManual(): Promise<void> {
+  const btn = document.getElementById('btn-check-update') as HTMLButtonElement | null;
+  const msg = document.getElementById('update-status-msg') as HTMLElement | null;
+  if (btn) { btn.disabled = true; btn.textContent = t('update_checking'); }
+  if (msg) msg.textContent = '';
+  const inclPre = localStorage.getItem('updateIncludePrerelease') === '1';
+  try {
+    const info = await invoke<UpdateInfo | null>('check_update', { includePrerelease: inclPre });
+    if (info) {
+      showUpdateModal(info, false);
+    } else {
+      if (msg) msg.textContent = t('update_up_to_date');
+    }
+  } catch (_err) {
+    if (msg) msg.textContent = t('update_error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = t('settings_check_update'); }
+  }
+}
+(window as unknown as Record<string, unknown>).checkUpdateManual = checkUpdateManual;
+
 window.addEventListener('DOMContentLoaded', async () => {
   const isFirstLaunch = !localStorage.getItem('lang');
   await initI18n();
@@ -2121,4 +2226,24 @@ window.addEventListener('DOMContentLoaded', async () => {
     searchBar.addEventListener('mouseenter', () => searchBar.classList.add('hovered'));
     searchBar.addEventListener('mouseleave', () => searchBar.classList.remove('hovered'));
   }
+
+  // Startup update check (silent — read pref from localStorage)
+  const _inclPre = localStorage.getItem('updateIncludePrerelease') === '1';
+  invoke<UpdateInfo | null>('check_update', { includePrerelease: _inclPre })
+    .then(info => { if (info) showUpdateModal(info, false); })
+    .catch(() => { /* silently ignore network errors on startup */ });
+
+  // Sync pre-release toggle state to checkbox
+  const _preToggle = document.getElementById('toggle-prerelease') as HTMLInputElement | null;
+  if (_preToggle) _preToggle.checked = _inclPre;
+
+  // Close-triggered update check
+  getCurrentWindow().listen<UpdateInfo>('update-check-on-close', (event) => {
+    const overlay = document.getElementById('update-overlay') as HTMLElement;
+    if (overlay.style.display === 'flex') {
+      _showUpdateActions(true);
+    } else {
+      showUpdateModal(event.payload, true);
+    }
+  });
 });

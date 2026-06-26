@@ -16,6 +16,10 @@
   },
   "dependencies": {
     "@tauri-apps/plugin-dialog": "^2.7.1",
-    "i18next": "^26.3.2"
+    "boring-avatars": "^2.0.4",
+    "i18next": "^26.3.2",
+    "marked": "^18.0.5",
+    "preact": "^10.29.3",
+    "preact-render-to-string": "^6.7.0"
   }
 }
