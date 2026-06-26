@@ -145,6 +145,19 @@
             <div class="st-section-body" id="cust-section-body"></div>
           </div>
           <div class="st-section">
+            <div class="st-section-title" onclick="toggleSection(this)"><span class="st-chevron">▾</span><span data-i18n="settings_updates_section">Mises à jour</span></div>
+            <div class="st-section-body">
+              <div class="st-btn-row" style="align-items:center;gap:10px;flex-wrap:wrap;">
+                <button class="btn-sm" id="btn-check-update" onclick="checkUpdateManual()" data-i18n="settings_check_update">Vérifier les mises à jour</button>
+                <span id="update-status-msg" style="font-size:0.82em;color:var(--ink2);"></span>
+              </div>
+              <label class="pf-checkbox-label" style="margin-top:6px;">
+                <input type="checkbox" id="toggle-prerelease" onchange="setPrereleasePreference(this.checked)">
+                <span data-i18n="update_include_prerelease">Inclure les pré-versions</span>
+              </label>
+            </div>
+          </div>
+          <div class="st-section">
             <div class="st-section-title" onclick="toggleSection(this)"><span class="st-chevron">▾</span><span data-i18n="settings_dev_section">Developer / Debug</span></div>
             <div class="st-section-body">
               <div class="st-btn-row">
@@ -154,6 +167,7 @@
                 <div class="st-btn-row">
                   <button class="btn-sm" onclick="showLangOverlay()" data-i18n="dev_lang_setup">Language Setup</button>
                   <button class="btn-sm btn-danger" onclick="factoryReset()" data-i18n="factory_reset">Réinitialisation usine</button>
+                  <button class="btn-sm" onclick="previewUpdateModal()" data-i18n="dev_preview_update">Preview mise à jour</button>
                 </div>
               </div>
             </div>
@@ -288,6 +302,32 @@
         <button class="btn-sm confirm-stay-btn" onclick="confirmTagColorsLeave(null)" data-i18n="cust_confirm_edit">Éditer</button>
         <button class="btn-sm btn-cancel" onclick="confirmTagColorsLeave(false)" data-i18n="cust_confirm_cancel">Annuler</button>
       </div>
+    </div>
+  </div>
+  <div id="update-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);align-items:center;justify-content:center;z-index:300;">
+    <div class="confirm-modal" style="max-width:520px;width:100%;">
+      <div style="font-weight:600;font-size:1em;margin-bottom:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span data-i18n="update_available">Mise à jour disponible</span>
+        <span id="update-version-badge" style="background:var(--accent);color:var(--accent-text);padding:2px 9px;border-radius:10px;font-size:0.82em;font-weight:500;"></span>
+        <span id="update-prerelease-badge" style="display:none;background:#b85c00;color:#fff;padding:2px 8px;border-radius:10px;font-size:0.78em;font-weight:600;letter-spacing:0.03em;">PRE-RELEASE</span>
+      </div>
+      <div id="update-body" class="md-body" style="max-height:180px;overflow-y:auto;background:var(--bg2);border:1px solid var(--border);border-radius:5px;padding:8px 12px;margin-bottom:8px;"></div>
+      <div style="font-size:0.8em;background:var(--bg2);border-radius:5px;padding:6px 10px;margin-bottom:10px;">
+        <div style="display:flex;gap:8px;align-items:baseline;padding:2px 0;">
+          <span style="color:var(--ink2);min-width:58px;" data-i18n="update_file">Fichier</span>
+          <span id="update-asset-name" style="color:var(--ink);word-break:break-all;"></span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:baseline;padding:2px 0;">
+          <span style="color:var(--ink2);min-width:58px;" data-i18n="update_size">Taille</span>
+          <span id="update-asset-size" style="color:var(--ink);"></span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:baseline;padding:2px 0;">
+          <span style="color:var(--ink2);min-width:58px;">SHA-256</span>
+          <code id="update-asset-sha" style="font-family:monospace;font-size:0.88em;color:var(--ink2);word-break:break-all;"></code>
+        </div>
+      </div>
+      <div id="update-installing-msg" style="display:none;font-size:0.85em;color:var(--ink2);margin-bottom:8px;text-align:center;" data-i18n="update_installing">Téléchargement et installation en cours...</div>
+      <div id="update-actions" class="st-confirm-actions"></div>
     </div>
   </div>
   <div id="debrief-overlay">

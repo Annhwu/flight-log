@@ -172,5 +172,21 @@
   "confirm_tag_colors_unsaved": "Есть несохранённые изменения цветов тегов.<br>Сохранить их?",
   "cust_confirm_accept": "Принять изменения",
   "cust_confirm_edit": "Редактировать",
-  "cust_confirm_cancel": "Отмена"
+  "cust_confirm_cancel": "Отмена",
+  "settings_updates_section": "Обновления",
+  "settings_check_update": "Проверить обновления",
+  "update_available": "Доступно обновление",
+  "update_file": "Файл",
+  "update_size": "Размер",
+  "update_install_btn": "Установить",
+  "update_later_btn": "Позже",
+  "update_install_close": "Установить и выйти",
+  "update_skip_close": "Закрыть без обновления",
+  "update_checking": "Проверка...",
+  "update_up_to_date": "Актуальная версия ✓",
+  "update_error": "Ошибка проверки ✗",
+  "update_installing": "Загрузка и установка...",
+  "update_no_sha": "Недоступно",
+  "dev_preview_update": "Превью обновления",
+  "update_include_prerelease": "Включить пре-релизы"
 }
