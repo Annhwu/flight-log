@@ -172,5 +172,21 @@
   "confirm_tag_colors_unsaved": "Vous avez des couleurs de tags non sauvegardées.<br>Voulez-vous les sauvegarder ?",
   "cust_confirm_accept": "Accepter les changements",
   "cust_confirm_edit": "Éditer",
-  "cust_confirm_cancel": "Annuler"
+  "cust_confirm_cancel": "Annuler",
+  "settings_updates_section": "Mises à jour",
+  "settings_check_update": "Vérifier les mises à jour",
+  "update_available": "Mise à jour disponible",
+  "update_file": "Fichier",
+  "update_size": "Taille",
+  "update_install_btn": "Installer maintenant",
+  "update_later_btn": "Plus tard",
+  "update_install_close": "Installer et quitter",
+  "update_skip_close": "Fermer sans mettre à jour",
+  "update_checking": "Vérification...",
+  "update_up_to_date": "À jour ✓",
+  "update_error": "Erreur de vérification ✗",
+  "update_installing": "Téléchargement et installation en cours...",
+  "update_no_sha": "Non disponible",
+  "dev_preview_update": "Preview mise à jour",
+  "update_include_prerelease": "Inclure les pré-versions"
 }

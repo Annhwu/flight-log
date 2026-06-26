@@ -172,5 +172,21 @@
   "confirm_tag_colors_unsaved": "You have unsaved tag color changes.<br>Do you want to save them?",
   "cust_confirm_accept": "Accept changes",
   "cust_confirm_edit": "Edit",
-  "cust_confirm_cancel": "Cancel"
+  "cust_confirm_cancel": "Cancel",
+  "settings_updates_section": "Updates",
+  "settings_check_update": "Check for updates",
+  "update_available": "Update available",
+  "update_file": "File",
+  "update_size": "Size",
+  "update_install_btn": "Install now",
+  "update_later_btn": "Later",
+  "update_install_close": "Install and quit",
+  "update_skip_close": "Close without updating",
+  "update_checking": "Checking...",
+  "update_up_to_date": "Up to date ✓",
+  "update_error": "Check failed ✗",
+  "update_installing": "Downloading and installing...",
+  "update_no_sha": "Not available",
+  "dev_preview_update": "Preview update modal",
+  "update_include_prerelease": "Include pre-releases"
 }
