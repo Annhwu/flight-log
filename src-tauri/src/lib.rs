@@ -2,6 +2,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::{Emitter, Manager};
+use tauri::tray::{TrayIconBuilder, TrayIconEvent};
 
 const GITHUB_REPO: &str = "Annhwu/flight-log";
 
@@ -29,6 +30,7 @@ pub struct UpdateState {
     pub info: Mutex<Option<UpdateInfo>>,
     pub dismissed: Mutex<bool>,
 }
+
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -248,6 +250,20 @@ fn force_close(app: tauri::AppHandle) {
 }
 
 #[tauri::command]
+fn minimize_to_tray(app: tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.hide();
+    }
+}
+
+#[tauri::command]
+fn get_pending_update(app: tauri::AppHandle) -> Option<UpdateInfo> {
+    let state = app.state::<UpdateState>();
+    let dismissed = *state.dismissed.lock().unwrap();
+    if dismissed { None } else { state.info.lock().unwrap().clone() }
+}
+
+#[tauri::command]
 fn get_app_version(app: tauri::AppHandle) -> String {
     app.package_info().version.to_string()
 }
@@ -294,6 +310,23 @@ pub fn run() {
             dismissed: Mutex::new(false),
         })
         .plugin(tauri_plugin_dialog::init())
+        .setup(|app| {
+            let handle = app.handle().clone();
+            TrayIconBuilder::new()
+                .icon(app.default_window_icon().unwrap().clone())
+                .tooltip("Flight Log")
+                .on_tray_icon_event(move |_tray, event| {
+                    if let TrayIconEvent::Click { .. } = event {
+                        if let Some(window) = handle.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.unminimize();
+                            let _ = window.set_focus();
+                        }
+                    }
+                })
+                .build(app)?;
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             save_file,
             save_data,
@@ -302,21 +335,21 @@ pub fn run() {
             download_and_install,
             dismiss_update,
             force_close,
+            minimize_to_tray,
+            get_pending_update,
             get_app_version,
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                // Only intercept when a pending update must be shown
                 let state = window.app_handle().state::<UpdateState>();
-                let is_dismissed = *state.dismissed.lock().unwrap();
-                if is_dismissed {
-                    return;
-                }
-                let info = state.info.lock().unwrap().clone();
-                if let Some(upd) = info {
-                    // Auto-dismiss so a second close attempt goes through cleanly
-                    *state.dismissed.lock().unwrap() = true;
-                    api.prevent_close();
-                    let _ = window.emit("update-check-on-close", upd);
+                let dismissed = *state.dismissed.lock().unwrap();
+                if !dismissed {
+                    if let Some(upd) = state.info.lock().unwrap().clone() {
+                        *state.dismissed.lock().unwrap() = true;
+                        api.prevent_close();
+                        let _ = window.app_handle().emit("update-check-on-close", upd);
+                    }
                 }
             }
         })

@@ -188,5 +188,15 @@
   "update_installing": "Téléchargement et installation en cours...",
   "update_no_sha": "Non disponible",
   "dev_preview_update": "Preview mise à jour",
-  "update_include_prerelease": "Inclure les pré-versions"
+  "update_include_prerelease": "Inclure les pré-versions",
+  "tray_session_title": "Session en cours",
+  "tray_session_msg": "Une session est en cours d'enregistrement. Que souhaitez-vous faire ?",
+  "tray_minimize_btn": "Minimiser dans la barre des tâches",
+  "tray_stop_close_btn": "Arrêter et fermer",
+  "tray_stop_close_hint": "L'enregistrement sera perdu",
+  "tray_remember": "Se souvenir de mon choix",
+  "tray_pref_label": "À la fermeture (session active) :",
+  "tray_pref_minimize": "Minimiser",
+  "tray_pref_stop_close": "Arrêter et fermer",
+  "tray_pref_reset": "Réinitialiser"
 }
