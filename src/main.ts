@@ -21,6 +21,19 @@ interface Session {
 
 const MISSION_TYPES = ['Training', 'CAP', 'CAS', 'SEAD', 'Strike', 'Intercept', 'Recon', 'Anti-Ship'];
 
+const TAG_COLOR_DEFAULTS: Record<string, { light: string; dark: string }> = {
+  'Training':  { light: '#137f11', dark: '#137f11' },
+  'CAP':       { light: '#7c7c7c', dark: '#7c7c7c' },
+  'CAS':       { light: '#bfb058', dark: '#bfb058' },
+  'SEAD':      { light: '#a30000', dark: '#a30000' },
+  'Strike':    { light: '#181818', dark: '#181818' },
+  'Intercept': { light: '#ad5811', dark: '#ad5811' },
+  'Recon':     { light: '#165f23', dark: '#165f23' },
+  'Anti-Ship': { light: '#08719e', dark: '#08719e' },
+};
+const TAG_MAP_DEFAULT = { light: '#4a3d32', dark: '#27211b' } as const;
+const TAG_AIRCRAFT_DEFAULT = { light: '#4a3d32', dark: '#27211b' } as const;
+
 const DCS_MAPS: { name: string; key: string; abbr?: string }[] = [
   { name: 'Caucasus',                       key: 'map_caucasus'       },
   { name: 'Marianne WWII',                  key: 'map_marianne_wwii'  },
@@ -52,6 +65,7 @@ interface Profile {
   exportProfile?: boolean;
   importProfile?: boolean;
   importMapsModules?: boolean;
+  importTagColors?: boolean;
   avatar?: string;
 }
 
@@ -61,6 +75,7 @@ interface AppData {
   profile?: Profile;
   ownedMaps?: string[];
   ownedModules?: string[];
+  tagColors?: Record<string, {light:string;dark:string}>;
 }
 
 interface EditResult {
@@ -180,6 +195,8 @@ let pendingNewFlightNav: (() => void) | null = null;
 let profileEditing = false;
 let pendingAvatarChange: string | null | undefined = undefined;
 let editingCardId: number | null = null;
+let pendingCardNav: (() => void) | null = null;
+let _pendingTagColorNav: (() => void) | null = null;
 
 // ─── Utilitaires ───────────────────────────────────────────────────────────
 
@@ -364,12 +381,14 @@ function showSaveIndicator(): void {
 // ─── Export / Import ────────────────────────────────────────────────────────
 
 async function exportJSON(): Promise<void> {
+  const savedTagColors = localStorage.getItem('tagColors');
   const data: AppData = {
     steamMinutes,
     sessions,
     ownedMaps: profile.maps ?? [],
     ownedModules: profile.modules ?? [],
     ...(profile.exportProfile ? { profile } : {}),
+    ...(savedTagColors ? { tagColors: JSON.parse(savedTagColors) } : {}),
   };
   const json = JSON.stringify(data, null, 2);
   const options: DialogSaveOptions = {
@@ -417,6 +436,11 @@ function loadFile(event: Event): void {
         if (pfPage && pfPage.style.display !== 'none') {
           if (profileEditing) editProfile(); else renderProfileView();
         }
+      }
+      if (profile.importTagColors && data.tagColors) {
+        localStorage.setItem('tagColors', JSON.stringify(data.tagColors));
+        _liveTagColors = loadTagColors();
+        applyTagColors();
       }
       await saveToFile();
       updateSteamDisplay();
@@ -615,9 +639,9 @@ function renderSessions(): void {
     const end   = new Date(s.endTs);
     const nameLine     = s.name  ? `<div class="s-name">${escapeHtml(s.name)}</div>` : '';
     const notesBadge   = s.notes ? `<div class="row s-note-badge">${t('card_notes_badge')}</div>` : '';
-    const aircraftRow  = s.aircraft?.length ? `<div class="s-aircraft-row">${s.aircraft.map(a => `<span class="s-aircraft-tag">${escapeHtml(a)}</span>`).join('')}</div>` : '';
+    const aircraftRow  = s.aircraft?.length ? `<div class="s-aircraft-row">${s.aircraft.map(a => `<span class="s-aircraft-tag" data-aircraft="${escapeHtml(a)}">${escapeHtml(a)}</span>`).join('')}</div>` : '';
     const missionRow   = s.missionTypes?.length ? `<div class="s-aircraft-row">${s.missionTypes.map(mt => `<span class="s-mission-tag" data-mission="${escapeHtml(mt)}">${escapeHtml(mt)}</span>`).join('')}</div>` : '';
-    const mapRow       = s.maps?.length ? `<div class="s-aircraft-row">${s.maps.map(m => { const mp = DCS_MAPS.find(d => d.name === m); return `<span class="s-map-tag">${escapeHtml(mp ? t(mp.key) : m)}</span>`; }).join('')}</div>` : '';
+    const mapRow       = s.maps?.length ? `<div class="s-aircraft-row">${s.maps.map(m => { const mp = DCS_MAPS.find(d => d.name === m); return `<span class="s-map-tag" data-map="${escapeHtml(m)}">${escapeHtml(mp ? t(mp.key) : m)}</span>`; }).join('')}</div>` : '';
 
     const notesFull    = s.notes
       ? `<div class="s-notes-full">${escapeHtml(s.notes).replace(/\n/g, '<br>')}</div>`
@@ -692,9 +716,10 @@ function renderSessions(): void {
 
 function toggleCard(id: number): void {
   const card    = document.getElementById('sc-' + id) as HTMLElement;
+  const isOpen  = card.classList.contains('expanded');
+  if (isOpen && checkCardEditing(() => toggleCard(id))) return;
   const details = document.getElementById('details-' + id) as HTMLElement;
   const editRow = document.getElementById('edit-' + id) as HTMLElement;
-  const isOpen  = card.classList.contains('expanded');
   if (isOpen) {
     card.classList.remove('expanded', 'editing');
     details.style.display = 'none';
@@ -781,12 +806,14 @@ function getCardChanges(id: number): string[] {
   return changes;
 }
 
-function checkCardEditing(_nav: () => void): boolean {
+function checkCardEditing(nav: () => void): boolean {
   if (editingCardId === null) return false;
   const row = document.getElementById('edit-' + editingCardId);
   if (!row || row.style.display === 'none') { editingCardId = null; return false; }
   const changes = getCardChanges(editingCardId);
+  if (_tagColorsDirty) changes.push(t('change_tag_colors'));
   if (!changes.length) { cancelEdit(editingCardId); return false; }
+  pendingCardNav = nav;
   const num = pad(sessions.findIndex(s => s.id === editingCardId) >= 0 ? sessions.length - sessions.findIndex(s => s.id === editingCardId) : 0);
   const msg = document.getElementById('card-confirm-msg')!;
   msg.innerHTML = t('confirm_card', { num, changes: changes.join('<br>') });
@@ -796,11 +823,27 @@ function checkCardEditing(_nav: () => void): boolean {
 
 function confirmCardLeave(save: boolean | null): void {
   (document.getElementById('card-confirm-overlay') as HTMLElement).style.display = 'none';
-  if (save === null) return;
+  if (save === null) { pendingCardNav = null; return; }
   const id = editingCardId;
-  if (id === null) return;
+  if (id === null) { pendingCardNav = null; return; }
   editingCardId = null;
-  if (save) saveEdit(id); else cancelEdit(id);
+  if (save) {
+    saveEdit(id);
+    if (_tagColorsDirty) saveTagColorsManual();
+  } else {
+    cancelEdit(id);
+    if (_tagColorsDirty) {
+      closeTagColorPopup();
+      closeTagEditor();
+      _liveTagColors = loadTagColors();
+      _tagColorsDirty = false;
+      _updateCustSaveBtn();
+      applyTagColors();
+    }
+  }
+  const nav = pendingCardNav;
+  pendingCardNav = null;
+  if (nav) nav();
 }
 
 // ─── Profil ────────────────────────────────────────────────────────────────
@@ -827,6 +870,7 @@ function showProfile(): void {
   if (checkCardEditing(() => showProfile())) return;
   if (checkNewFlight(() => showProfile())) return;
   if (checkSettingsDirty(() => showProfile())) return;
+  if (checkTagColorsDirty(() => showProfile())) return;
   hidAllPages();
   (document.getElementById('profile-page') as HTMLElement).style.display = 'flex';
   document.getElementById('profile-btn')?.classList.add('active');
@@ -841,6 +885,7 @@ function showHistorique(): void {
   if (checkNewFlight(() => showHistorique())) return;
   if (checkProfileEditing(() => showHistorique())) return;
   if (checkSettingsDirty(() => showHistorique())) return;
+  if (checkTagColorsDirty(() => showHistorique())) return;
   hidAllPages();
   (document.getElementById('log-page') as HTMLElement).style.display = '';
   document.getElementById('nav-historique')?.classList.add('active');
@@ -853,6 +898,7 @@ function showSettings(): void {
   if (checkNewFlight(() => showSettings())) return;
   if (checkProfileEditing(() => showSettings())) return;
   if (checkSettingsDirty(() => showSettings())) return;
+  if (checkTagColorsDirty(() => showSettings())) return;
   hidAllPages();
   (document.getElementById('settings-page') as HTMLElement).style.display = 'flex';
   document.getElementById('nav-settings')?.classList.add('active');
@@ -863,6 +909,8 @@ function showSettings(): void {
   if (impCb) impCb.checked = !!profile.importProfile;
   const impMMCb = document.getElementById('st-import-maps-modules') as HTMLInputElement;
   if (impMMCb) impMMCb.checked = !!profile.importMapsModules;
+  const impTCCb = document.getElementById('st-import-tag-colors') as HTMLInputElement;
+  if (impTCCb) impTCCb.checked = !!profile.importTagColors;
   settingsDirty = false;
 }
 
@@ -875,6 +923,7 @@ function saveSettings(): void {
   profile.exportProfile = (document.getElementById('st-export-profile') as HTMLInputElement).checked;
   profile.importProfile = (document.getElementById('st-import-profile') as HTMLInputElement).checked;
   profile.importMapsModules = (document.getElementById('st-import-maps-modules') as HTMLInputElement).checked;
+  profile.importTagColors = (document.getElementById('st-import-tag-colors') as HTMLInputElement).checked;
   settingsDirty = false;
   (document.getElementById('st-action-btns') as HTMLElement).style.display = 'none';
   saveToFile();
@@ -884,6 +933,7 @@ function cancelSettings(): void {
   (document.getElementById('st-export-profile') as HTMLInputElement).checked = !!profile.exportProfile;
   (document.getElementById('st-import-profile') as HTMLInputElement).checked = !!profile.importProfile;
   (document.getElementById('st-import-maps-modules') as HTMLInputElement).checked = !!profile.importMapsModules;
+  (document.getElementById('st-import-tag-colors') as HTMLInputElement).checked = !!profile.importTagColors;
   settingsDirty = false;
   (document.getElementById('st-action-btns') as HTMLElement).style.display = 'none';
 }
@@ -893,9 +943,11 @@ function getSettingsChanges(): string[] {
   const exp = (document.getElementById('st-export-profile') as HTMLInputElement)?.checked;
   const imp = (document.getElementById('st-import-profile') as HTMLInputElement)?.checked;
   const impMM = (document.getElementById('st-import-maps-modules') as HTMLInputElement)?.checked;
+  const impTC = (document.getElementById('st-import-tag-colors') as HTMLInputElement)?.checked;
   if (exp !== !!profile.exportProfile) changes.push(t('change_setting_export', { state: exp ? t('change_enabled') : t('change_disabled') }));
   if (imp !== !!profile.importProfile) changes.push(t('change_setting_import', { state: imp ? t('change_enabled') : t('change_disabled') }));
   if (impMM !== !!profile.importMapsModules) changes.push(t('change_setting_maps_modules', { state: impMM ? t('change_enabled') : t('change_disabled') }));
+  if (impTC !== !!profile.importTagColors) changes.push(t('change_setting_tag_colors', { state: impTC ? t('change_enabled') : t('change_disabled') }));
   return changes;
 }
 
@@ -996,7 +1048,34 @@ function checkSettingsDirty(_nav: () => void): boolean {
 function confirmSettingsLeave(save: boolean | null): void {
   (document.getElementById('st-confirm-overlay') as HTMLElement).style.display = 'none';
   if (save === null) return;
-  if (save) saveSettings(); else cancelSettings();
+  if (save) saveSettings(); else { closeTagColorPopup(); cancelSettings(); }
+}
+
+function checkTagColorsDirty(nav: () => void): boolean {
+  if (!_tagColorsDirty) return false;
+  _pendingTagColorNav = nav;
+  const msg = document.getElementById('cust-confirm-msg')!;
+  msg.innerHTML = t('confirm_tag_colors_unsaved');
+  (document.getElementById('cust-confirm-overlay') as HTMLElement).style.display = 'flex';
+  return true;
+}
+
+function confirmTagColorsLeave(save: boolean | null): void {
+  (document.getElementById('cust-confirm-overlay') as HTMLElement).style.display = 'none';
+  if (save === null) { _pendingTagColorNav = null; return; }
+  if (save) {
+    saveTagColorsManual();
+  } else {
+    closeTagEditor();
+    _liveTagColors = loadTagColors();
+    _tagColorsDirty = false;
+    _updateCustSaveBtn();
+    applyTagColors();
+  }
+  closeTagColorPopup();
+  const nav = _pendingTagColorNav;
+  _pendingTagColorNav = null;
+  if (nav) nav();
 }
 
 function toggleSection(titleEl: HTMLElement): void {
@@ -1006,6 +1085,7 @@ function toggleSection(titleEl: HTMLElement): void {
 function cancelNewFlight(): void {
   if (checkProfileEditing(() => cancelNewFlight())) return;
   if (checkSettingsDirty(() => cancelNewFlight())) return;
+  if (checkTagColorsDirty(() => cancelNewFlight())) return;
   hidAllPages();
   (document.getElementById('log-page') as HTMLElement).style.display = '';
   document.getElementById('burger-history')?.classList.add('active');
@@ -1015,6 +1095,7 @@ function showNewFlight(): void {
   if (checkCardEditing(() => showNewFlight())) return;
   if (checkProfileEditing(() => showNewFlight())) return;
   if (checkSettingsDirty(() => showNewFlight())) return;
+  if (checkTagColorsDirty(() => showNewFlight())) return;
   hidAllPages();
   (document.getElementById('new-flight-page') as HTMLElement).style.display = 'flex';
   document.getElementById('nav-new-flight')?.classList.add('active');
@@ -1129,7 +1210,8 @@ function getEffectiveOwnedModuleNames(): Set<string> {
 }
 
 function missionTagHtml(id: number, type: string): string {
-  return `<span class="mission-tag" data-mission="${escapeHtml(type)}">${escapeHtml(type)}<button type="button" class="mission-tag-remove" onclick="removeMissionType(${id},'${escapeHtml(type)}')"><img src="./icons/close.png" alt="×"></button></span>`;
+  const sk = escapeHtml(type);
+  return `<span class="mission-tag" data-mission="${sk}">${sk}<button type="button" class="mission-tag-color" onclick="openTagColorPopup('${sk}',this)">${DROPPER_SVG}</button><button type="button" class="mission-tag-remove" onclick="removeMissionType(${id},'${sk}')"><img src="./icons/close.png" alt="×"></button></span>`;
 }
 
 function renderMissionPickerHtml(id: number, selected: string[]): string {
@@ -1224,11 +1306,16 @@ function renderMapPickerHtml(selected: string[]): string {
 // ─── Expandable pickers (cards & nouveau vol) ───────────────────────────────
 
 function aircraftTagHtml2(contextId: string, model: string): string {
-  return `<span class="mission-tag" data-aircraft="${escapeHtml(model)}">${escapeHtml(model)}<button type="button" class="mission-tag-remove" onclick="removeAircraftType('${contextId}','${escapeHtml(model)}')"><img src="./icons/close.png" alt="×"></button></span>`;
+  const sm = escapeHtml(model);
+  const mod = DCS_MODULES.find(m => (m.variants ?? [m.name]).includes(model));
+  const colorKey = escapeHtml(mod ? `aircraft:${mod.name}` : `aircraft:${model}`);
+  return `<span class="mission-tag" data-aircraft="${sm}">${sm}<button type="button" class="mission-tag-color" onclick="openTagColorPopup('${colorKey}',this)">${DROPPER_SVG}</button><button type="button" class="mission-tag-remove" onclick="removeAircraftType('${contextId}','${sm}')"><img src="./icons/close.png" alt="×"></button></span>`;
 }
 
 function mapTagHtml2(contextId: string, mapName: string, label: string): string {
-  return `<span class="mission-tag" data-map="${escapeHtml(mapName)}">${escapeHtml(label)}<button type="button" class="mission-tag-remove" onclick="removeMapType('${contextId}','${escapeHtml(mapName)}')"><img src="./icons/close.png" alt="×"></button></span>`;
+  const sm = escapeHtml(mapName);
+  const colorKey = escapeHtml(`map:${mapName}`);
+  return `<span class="mission-tag" data-map="${sm}">${escapeHtml(label)}<button type="button" class="mission-tag-color" onclick="openTagColorPopup('${colorKey}',this)">${DROPPER_SVG}</button><button type="button" class="mission-tag-remove" onclick="removeMapType('${contextId}','${sm}')"><img src="./icons/close.png" alt="×"></button></span>`;
 }
 
 function renderAircraftPickerExpandable(contextId: string, selected: string[]): string {
@@ -1485,11 +1572,362 @@ async function setLanguage(lang: string): Promise<void> {
     if (profileEditing) editProfile(); else renderProfileView();
   }
   syncBurgerState();
+  renderCustomisationSection();
+}
+
+// ─── Tag color customisation ────────────────────────────────────────────────
+
+function getTextColorForBg(hex: string): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.5 ? '#111108' : '#ffffff';
+}
+
+function loadTagColors(): Record<string, { light: string; dark: string }> {
+  const result: Record<string, { light: string; dark: string }> = {};
+  for (const [k, v] of Object.entries(TAG_COLOR_DEFAULTS)) result[k] = { ...v };
+  for (const map of DCS_MAPS) result[`map:${map.name}`] = { ...TAG_MAP_DEFAULT };
+  for (const mod of DCS_MODULES) result[`aircraft:${mod.name}`] = { ...TAG_AIRCRAFT_DEFAULT };
+  try {
+    const saved = localStorage.getItem('tagColors');
+    if (saved) {
+      const parsed = JSON.parse(saved) as Record<string, { light?: string; dark?: string }>;
+      for (const [k, v] of Object.entries(parsed)) {
+        if (result[k]) {
+          if (v.light) result[k].light = v.light;
+          if (v.dark) result[k].dark = v.dark;
+        }
+      }
+    }
+  } catch { /* use defaults */ }
+  return result;
+}
+
+function saveTagColors(colors: Record<string, { light: string; dark: string }>): void {
+  const toSave: Record<string, { light: string; dark: string }> = {};
+  for (const [k, v] of Object.entries(colors)) {
+    const def = TAG_COLOR_DEFAULTS[k] ?? (k.startsWith('map:') ? TAG_MAP_DEFAULT : k.startsWith('aircraft:') ? TAG_AIRCRAFT_DEFAULT : null);
+    if (!def || v.light !== def.light || v.dark !== def.dark) toSave[k] = v;
+  }
+  if (Object.keys(toSave).length > 0) localStorage.setItem('tagColors', JSON.stringify(toSave));
+  else localStorage.removeItem('tagColors');
+}
+
+// ─── Live color state (pas de sauvegarde automatique) ─────────────────────
+
+let _liveTagColors: Record<string, {light:string;dark:string}> = loadTagColors();
+let _tagColorsDirty = false;
+
+function _updateCustSaveBtn(): void {
+  const row = document.getElementById('cust-save-row') as HTMLElement | null;
+  if (row) row.style.display = _tagColorsDirty ? 'flex' : 'none';
+}
+
+function saveTagColorsManual(): void {
+  saveTagColors(_liveTagColors);
+  _tagColorsDirty = false;
+  _updateCustSaveBtn();
+}
+
+function saveTagColorsPopup(): void {
+  applyTagColors();
+  closeTagColorPopup();
+}
+
+function cancelTagColors(): void {
+  closeTagColorPopup();
+  closeTagEditor();
+  _liveTagColors = loadTagColors();
+  _tagColorsDirty = false;
+  _updateCustSaveBtn();
+  applyTagColors();
+}
+
+function applyTagColors(): void {
+  const colors = _liveTagColors;
+  let css = '';
+  for (const [m, c] of Object.entries(colors)) {
+    if (m.startsWith('map:') || m.startsWith('aircraft:')) continue;
+    const lt = getTextColorForBg(c.light);
+    const dt = getTextColorForBg(c.dark);
+    const base = `.mission-chip[data-mission="${m}"],.mission-tag[data-mission="${m}"],.s-mission-tag[data-mission="${m}"]`;
+    css += `${base}{background:${c.light}!important;border-color:${c.light}!important;color:${lt}!important;}`;
+    const darkBase = base.split(',').map(s => `[data-theme="dark-brown"] ${s.trim()}`).join(',');
+    css += `${darkBase}{background:${c.dark}!important;border-color:${c.dark}!important;color:${dt}!important;}`;
+  }
+  for (const map of DCS_MAPS) {
+    const c = colors[`map:${map.name}`] ?? TAG_MAP_DEFAULT;
+    const lt = getTextColorForBg(c.light); const dt = getTextColorForBg(c.dark);
+    const v = map.name.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    css += `.s-map-tag[data-map="${v}"],.mission-tag[data-map="${v}"]{background:${c.light}!important;color:${lt}!important;}`;
+    css += `[data-theme="dark-brown"] .s-map-tag[data-map="${v}"],[data-theme="dark-brown"] .mission-tag[data-map="${v}"]{background:${c.dark}!important;color:${dt}!important;}`;
+  }
+  for (const mod of DCS_MODULES) {
+    const c = colors[`aircraft:${mod.name}`] ?? TAG_AIRCRAFT_DEFAULT;
+    const lt = getTextColorForBg(c.light); const dt = getTextColorForBg(c.dark);
+    const variants = mod.variants ?? [mod.name];
+    const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    const ls = variants.map(v => `.s-aircraft-tag[data-aircraft="${esc(v)}"],.mission-tag[data-aircraft="${esc(v)}"]`).join(',');
+    const ds = variants.map(v => `[data-theme="dark-brown"] .s-aircraft-tag[data-aircraft="${esc(v)}"],[data-theme="dark-brown"] .mission-tag[data-aircraft="${esc(v)}"]`).join(',');
+    css += `${ls}{background:${c.light}!important;color:${lt}!important;}`;
+    css += `${ds}{background:${c.dark}!important;color:${dt}!important;}`;
+  }
+  let el = document.getElementById('tag-color-overrides') as HTMLStyleElement | null;
+  if (!el) {
+    el = document.createElement('style');
+    el.id = 'tag-color-overrides';
+    document.head.appendChild(el);
+  }
+  el.textContent = css;
+}
+
+function renderCustomisationSection(): void {
+  const body = document.getElementById('cust-section-body');
+  if (!body) return;
+  const missionChips = MISSION_TYPES.map(m => {
+    const sk = escapeHtml(m);
+    return `<button class="cust-chip s-mission-tag" id="cust-chip-${sk}" data-mission="${sk}" onclick="openTagEditor('${sk}')">${sk}</button>`;
+  }).join('');
+  const mapChips = DCS_MAPS.map(map => {
+    const key = `map:${map.name}`;
+    const sk = escapeHtml(key);
+    const label = escapeHtml(map.abbr ?? t(map.key));
+    return `<button class="cust-chip s-map-tag" id="cust-chip-${sk}" data-map="${escapeHtml(map.name)}" onclick="openTagEditor('${sk}')">${label}</button>`;
+  }).join('');
+  const moduleChips = DCS_MODULES.map(mod => {
+    const key = `aircraft:${mod.name}`;
+    const sk = escapeHtml(key);
+    const firstVariant = escapeHtml((mod.variants ?? [mod.name])[0]);
+    return `<button class="cust-chip s-aircraft-tag" id="cust-chip-${sk}" data-aircraft="${firstVariant}" onclick="openTagEditor('${sk}')">${escapeHtml(mod.name)}</button>`;
+  }).join('');
+  const sub = (id: string, label: string, searchBarId: string, searchId: string, hintId: string, hint: string, chipsId: string, chips: string, editorId: string) =>
+    `<div class="cust-subsection">
+      <div class="cust-sub-title" onclick="toggleCustSub(this)"><span class="cust-chevron">▾</span><span>${label}</span></div>
+      <div class="cust-subsection-body" id="${id}">
+        <div class="page-search-bar cust-search-bar" id="${searchBarId}">
+          <input type="text" id="${searchId}" placeholder=" " oninput="filterCustChips('${chipsId}',this.value)">
+          <span id="${hintId}">${hint}</span>
+        </div>
+        <div class="cust-chips-row" id="${chipsId}">${chips}</div>
+        <div class="cust-editor-panel" id="${editorId}" style="display:none"></div>
+      </div>
+    </div>`;
+  body.innerHTML =
+    sub('cust-sub-missions','Missions','cust-mission-search-bar','cust-mission-search','cust-mission-hint',escapeHtml(t('cust_search_mission')),'cust-missions-chips',missionChips,'cust-editor-missions') +
+    sub('cust-sub-maps','Maps','cust-map-search-bar','cust-map-search','cust-map-hint',escapeHtml(t('profile_map_search')),'cust-maps-chips',mapChips,'cust-editor-maps') +
+    sub('cust-sub-modules','Modules','cust-module-search-bar','cust-module-search','cust-module-hint',escapeHtml(t('profile_module_search')),'cust-modules-chips',moduleChips,'cust-editor-modules') +
+    `<div style="display:flex;align-items:center;gap:6px;margin-top:10px;padding-top:8px;border-top:1px solid var(--border);">
+      <div id="cust-save-row" style="display:none;gap:6px;align-items:center;">
+        <button class="btn-sm" onclick="saveTagColorsManual()">${escapeHtml(t('cust_save_colors'))}</button>
+        <button class="btn-sm btn-cancel" onclick="cancelTagColors()">${escapeHtml(t('cust_cancel_colors'))}</button>
+      </div>
+      <div style="flex:1"></div>
+      <button class="btn-sm btn-danger" onclick="resetAllTagColors()">${escapeHtml(t('cust_reset_all_colors'))}</button>
+    </div>`;
+  _updateCustSaveBtn();
+}
+
+function toggleCustSub(titleEl: HTMLElement): void {
+  const sub = titleEl.closest('.cust-subsection') as HTMLElement | null;
+  if (!sub) return;
+  const body = sub.querySelector<HTMLElement>('.cust-subsection-body');
+  if (!body) return;
+  if (sub.classList.contains('collapsed')) {
+    sub.classList.remove('collapsed');
+    body.style.overflow = 'hidden';
+    body.style.maxHeight = '0';
+    requestAnimationFrame(() => {
+      body.style.maxHeight = body.scrollHeight + 'px';
+      let done = false;
+      const finish = () => { if (done) return; done = true; body.style.maxHeight = ''; body.style.overflow = ''; };
+      body.addEventListener('transitionend', finish, { once: true });
+      setTimeout(finish, 200);
+    });
+  } else {
+    body.style.overflow = 'hidden';
+    body.style.maxHeight = body.scrollHeight + 'px';
+    body.getBoundingClientRect();
+    sub.classList.add('collapsed');
+    body.style.maxHeight = '0';
+  }
+}
+
+function filterCustChips(chipsRowId: string, query: string): void {
+  const row = document.getElementById(chipsRowId);
+  if (!row) return;
+  const q = query.toLowerCase().trim();
+  row.querySelectorAll<HTMLElement>('.cust-chip').forEach(chip => {
+    chip.style.display = !q || (chip.textContent?.toLowerCase() ?? '').includes(q) ? '' : 'none';
+  });
+}
+
+const PEN_SVG = `<svg class="cust-pen-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.83 2.83 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>`;
+const DROPPER_SVG = `<svg class="tag-dropper-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m2 22 1-1h3l9-9"/><path d="M3 21v-3l9-9"/><path d="m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8-2.2 2.2"/></svg>`;
+
+function makeEditorHTML(sk: string, sl: string, c: {light: string; dark: string}, ltText: string, dtText: string, isDefault: boolean, closeFn: string): string {
+  const colorBtn = (theme: 'light'|'dark', val: string) =>
+    `<span class="cust-color-btn">${PEN_SVG}<input type="color" class="cust-color-input" id="color-${sk}-${theme}" value="${val}" onchange="updateTagColor('${sk}','${theme}',this.value)"></span>`;
+  return `<button class="cust-editor-close" onclick="${closeFn}" title="Close">×</button>
+  <div class="cust-editor-row">
+    <div class="cust-theme-col">
+      <span class="cust-theme-label">Light</span>
+      <div class="cust-theme-preview cust-light-bg">
+        <div class="cust-tag-label-wrap">
+          <span class="cust-tag-sample" id="prev-${sk}-light" style="background:${c.light};color:${ltText}">${sl}</span>
+          ${colorBtn('light', c.light)}
+        </div>
+      </div>
+    </div>
+    <div class="cust-sync-col">
+      <button class="cust-sync-btn" onclick="syncTagColor('${sk}','light')" title="Copy light → dark">→</button>
+      <button class="cust-sync-btn" onclick="syncTagColor('${sk}','dark')" title="Copy dark → light">←</button>
+      <button class="cust-sync-btn" onclick="swapTagColors('${sk}')" title="Swap light ↔ dark">⇄</button>
+    </div>
+    <div class="cust-theme-col">
+      <span class="cust-theme-label">Dark</span>
+      <div class="cust-theme-preview cust-dark-bg">
+        <div class="cust-tag-label-wrap">
+          <span class="cust-tag-sample" id="prev-${sk}-dark" style="background:${c.dark};color:${dtText}">${sl}</span>
+          ${colorBtn('dark', c.dark)}
+        </div>
+      </div>
+    </div>
+    <button class="cust-reset-btn" id="reset-${sk}" style="${isDefault ? 'visibility:hidden' : ''}" onclick="resetTagColor('${sk}')" title="Reset to default">↺</button>
+  </div>`;
+}
+
+function resolveTagEditorData(tagKey: string): { sk: string; sl: string; c: {light:string;dark:string}; ltText: string; dtText: string; isDefault: boolean; def: {light:string;dark:string}|null } {
+  const def = TAG_COLOR_DEFAULTS[tagKey] ?? (tagKey.startsWith('map:') ? TAG_MAP_DEFAULT : tagKey.startsWith('aircraft:') ? TAG_AIRCRAFT_DEFAULT : null);
+  const c = _liveTagColors[tagKey] ?? def ?? { light: '#888888', dark: '#888888' };
+  const isDefault = def ? c.light === def.light && c.dark === def.dark : true;
+  const sk = escapeHtml(tagKey);
+  let label: string;
+  if (tagKey.startsWith('map:')) { const mp = DCS_MAPS.find(d => d.name === tagKey.slice(4)); label = mp ? t(mp.key) : tagKey.slice(4); }
+  else if (tagKey.startsWith('aircraft:')) { label = tagKey.slice(9); }
+  else { label = tagKey; }
+  return { sk, sl: escapeHtml(label), c, ltText: getTextColorForBg(c.light), dtText: getTextColorForBg(c.dark), isDefault, def };
+}
+
+function openTagEditor(tagKey: string): void {
+  const panelId = tagKey.startsWith('map:') ? 'cust-editor-maps' : tagKey.startsWith('aircraft:') ? 'cust-editor-modules' : 'cust-editor-missions';
+  const panel = document.getElementById(panelId) as HTMLElement | null;
+  if (!panel) return;
+  const isOpen = panel.dataset.openKey === tagKey && panel.style.display !== 'none';
+  document.querySelectorAll<HTMLElement>('.cust-editor-panel:not(#tag-color-popup)').forEach(p => { p.style.display = 'none'; p.dataset.openKey = ''; });
+  document.querySelectorAll<HTMLElement>('.cust-chip').forEach(el => el.classList.remove('open'));
+  if (isOpen) return;
+  document.getElementById(`cust-chip-${tagKey}`)?.classList.add('open');
+  const { sk, sl, c, ltText, dtText, isDefault } = resolveTagEditorData(tagKey);
+  panel.dataset.openKey = tagKey;
+  panel.style.display = '';
+  panel.innerHTML = makeEditorHTML(sk, sl, c, ltText, dtText, isDefault, 'closeTagEditor()') +
+    `<div style="display:flex;gap:6px;padding:6px 8px 4px;margin-top:6px;border-top:1px solid var(--border);">
+      <button class="btn-sm" onclick="closeTagEditor()">${escapeHtml(t('cust_confirm_popup'))}</button>
+      <button class="btn-sm btn-cancel" onclick="cancelTagColors()">${escapeHtml(t('cust_cancel_colors'))}</button>
+    </div>`;
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function closeTagEditor(): void {
+  document.querySelectorAll<HTMLElement>('.cust-editor-panel:not(#tag-color-popup)').forEach(p => { p.style.display = 'none'; p.dataset.openKey = ''; });
+  document.querySelectorAll<HTMLElement>('.cust-chip').forEach(el => el.classList.remove('open'));
+}
+
+function openTagColorPopup(tagKey: string, triggerEl: HTMLElement): void {
+  const popup = document.getElementById('tag-color-popup') as HTMLElement | null;
+  if (!popup) return;
+  if (popup.dataset.openKey === tagKey && popup.style.display !== 'none') { closeTagColorPopup(); return; }
+  const { sk, sl, c, ltText, dtText, isDefault } = resolveTagEditorData(tagKey);
+  popup.dataset.openKey = tagKey;
+  popup.innerHTML = makeEditorHTML(sk, sl, c, ltText, dtText, isDefault, 'closeTagColorPopup()') +
+    `<div style="display:flex;gap:6px;padding:6px 8px 4px;margin-top:6px;border-top:1px solid var(--border);">
+      <button class="btn-sm" onclick="saveTagColorsPopup()">${escapeHtml(t('cust_confirm_popup'))}</button>
+      <button class="btn-sm btn-cancel" onclick="cancelTagColors()">${escapeHtml(t('cust_cancel_colors'))}</button>
+    </div>`;
+  popup.style.display = '';
+  const rect = triggerEl.getBoundingClientRect();
+  const pw = popup.offsetWidth || 280;
+  popup.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - pw - 8)) + 'px';
+  popup.style.top = (rect.bottom + 6) + 'px';
+  setTimeout(() => document.addEventListener('click', _popupOutside, { once: true }), 0);
+}
+
+function _popupOutside(e: MouseEvent): void {
+  const popup = document.getElementById('tag-color-popup');
+  if (popup && !popup.contains(e.target as Node)) closeTagColorPopup();
+  else if (popup && popup.style.display !== 'none') setTimeout(() => document.addEventListener('click', _popupOutside, { once: true }), 0);
+}
+
+function closeTagColorPopup(): void {
+  const popup = document.getElementById('tag-color-popup') as HTMLElement | null;
+  if (popup) { popup.style.display = 'none'; popup.dataset.openKey = ''; }
+}
+
+
+function _custSyncUI(tagKey: string, colors: Record<string, { light: string; dark: string }>): void {
+  const c = colors[tagKey];
+  if (!c) return;
+  for (const theme of ['light', 'dark'] as const) {
+    const color = c[theme];
+    const preview = document.getElementById(`prev-${tagKey}-${theme}`);
+    if (preview) { (preview as HTMLElement).style.background = color; (preview as HTMLElement).style.color = getTextColorForBg(color); }
+    const input = document.getElementById(`color-${tagKey}-${theme}`) as HTMLInputElement | null;
+    if (input) input.value = color;
+  }
+  const def = TAG_COLOR_DEFAULTS[tagKey] ?? (tagKey.startsWith('map:') ? TAG_MAP_DEFAULT : tagKey.startsWith('aircraft:') ? TAG_AIRCRAFT_DEFAULT : null);
+  const resetBtn = document.getElementById(`reset-${tagKey}`);
+  if (resetBtn && def) (resetBtn as HTMLElement).style.visibility = (c.light === def.light && c.dark === def.dark) ? 'hidden' : '';
+}
+
+function updateTagColor(tagKey: string, theme: 'light' | 'dark', color: string): void {
+  if (!_liveTagColors[tagKey]) _liveTagColors[tagKey] = { ...(TAG_COLOR_DEFAULTS[tagKey] ?? { light: '#888888', dark: '#888888' }) };
+  _liveTagColors[tagKey][theme] = color;
+  _tagColorsDirty = true;
+  _updateCustSaveBtn();
+  applyTagColors();
+  const preview = document.getElementById(`prev-${tagKey}-${theme}`);
+  if (preview) { (preview as HTMLElement).style.background = color; (preview as HTMLElement).style.color = getTextColorForBg(color); }
+  const def = TAG_COLOR_DEFAULTS[tagKey] ?? (tagKey.startsWith('map:') ? TAG_MAP_DEFAULT : tagKey.startsWith('aircraft:') ? TAG_AIRCRAFT_DEFAULT : null);
+  const resetBtn = document.getElementById(`reset-${tagKey}`);
+  if (resetBtn && def) (resetBtn as HTMLElement).style.visibility = (_liveTagColors[tagKey].light === def.light && _liveTagColors[tagKey].dark === def.dark) ? 'hidden' : '';
+}
+
+function syncTagColor(tagKey: string, from: 'light' | 'dark'): void {
+  const to: 'light' | 'dark' = from === 'light' ? 'dark' : 'light';
+  if (!_liveTagColors[tagKey]) _liveTagColors[tagKey] = { ...(TAG_COLOR_DEFAULTS[tagKey] ?? { light: '#888888', dark: '#888888' }) };
+  _liveTagColors[tagKey][to] = _liveTagColors[tagKey][from];
+  _tagColorsDirty = true;
+  _updateCustSaveBtn();
+  applyTagColors();
+  _custSyncUI(tagKey, _liveTagColors);
+}
+
+function swapTagColors(tagKey: string): void {
+  if (!_liveTagColors[tagKey]) _liveTagColors[tagKey] = { ...(TAG_COLOR_DEFAULTS[tagKey] ?? { light: '#888888', dark: '#888888' }) };
+  const tmp = _liveTagColors[tagKey].light;
+  _liveTagColors[tagKey].light = _liveTagColors[tagKey].dark;
+  _liveTagColors[tagKey].dark = tmp;
+  _tagColorsDirty = true;
+  _updateCustSaveBtn();
+  applyTagColors();
+  _custSyncUI(tagKey, _liveTagColors);
+}
+
+function resetTagColor(tagKey: string): void {
+  const def = TAG_COLOR_DEFAULTS[tagKey] ?? (tagKey.startsWith('map:') ? TAG_MAP_DEFAULT : tagKey.startsWith('aircraft:') ? TAG_AIRCRAFT_DEFAULT : null);
+  if (!def) return;
+  _liveTagColors[tagKey] = { ...def };
+  _tagColorsDirty = true;
+  _updateCustSaveBtn();
+  applyTagColors();
+  _custSyncUI(tagKey, _liveTagColors);
 }
 
 // ─── Indicateur de sauvegarde ──────────────────────────────────────────────
 
 document.body.insertAdjacentHTML('beforeend', `<div id="save-indicator">${t('save_indicator')}</div>`);
+document.body.insertAdjacentHTML('beforeend', `<div id="tag-color-popup" class="cust-editor-panel tag-color-popup" style="display:none;position:fixed;z-index:9999;"></div>`);
 
 // ─── Exposer les fonctions au HTML inline ──────────────────────────────────
 
@@ -1530,6 +1968,7 @@ window.showProfile = showProfile;
 (window as any).cancelSettings = cancelSettings;
 (window as any).onSettingChange = onSettingChange;
 (window as any).confirmSettingsLeave = confirmSettingsLeave;
+(window as any).confirmTagColorsLeave = confirmTagColorsLeave;
 (window as any).confirmCardLeave = confirmCardLeave;
 (window as any).confirmNewFlightLeave = confirmNewFlightLeave;
 (window as any).confirmProfileLeave = confirmProfileLeave;
@@ -1568,6 +2007,19 @@ function setTheme(theme: string): void {
   });
 }
 (window as any).setTheme = setTheme;
+(window as any).updateTagColor = updateTagColor;
+(window as any).syncTagColor = syncTagColor;
+(window as any).swapTagColors = swapTagColors;
+(window as any).resetTagColor = resetTagColor;
+(window as any).saveTagColorsManual = saveTagColorsManual;
+(window as any).saveTagColorsPopup = saveTagColorsPopup;
+(window as any).cancelTagColors = cancelTagColors;
+(window as any).openTagEditor = openTagEditor;
+(window as any).closeTagEditor = closeTagEditor;
+(window as any).openTagColorPopup = openTagColorPopup;
+(window as any).closeTagColorPopup = closeTagColorPopup;
+(window as any).toggleCustSub = toggleCustSub;
+(window as any).filterCustChips = filterCustChips;
 
 window.tbMinimize = () => getCurrentWindow().minimize();
 window.tbMaximize = () => getCurrentWindow().toggleMaximize();
@@ -1616,11 +2068,26 @@ function toggleDevMode(): void {
 
 (window as unknown as Record<string, unknown>).showLangOverlay = showLangOverlay;
 
-function resetFirstLaunch(): void {
-  localStorage.removeItem('lang');
+function resetAllTagColors(): void {
+  if (!confirm(t('cust_reset_all_confirm1'))) return;
+  if (!confirm(t('cust_reset_all_confirm2'))) return;
+  localStorage.removeItem('tagColors');
+  _liveTagColors = loadTagColors();
+  _tagColorsDirty = false;
+  _updateCustSaveBtn();
+  applyTagColors();
+  renderCustomisationSection();
+}
+(window as unknown as Record<string, unknown>).resetAllTagColors = resetAllTagColors;
+
+function factoryReset(): void {
+  if (!confirm(t('factory_reset_confirm1'))) return;
+  if (!confirm(t('factory_reset_confirm2'))) return;
+  localStorage.clear();
+  sessionStorage.clear();
   location.reload();
 }
-(window as unknown as Record<string, unknown>).resetFirstLaunch = resetFirstLaunch;
+(window as unknown as Record<string, unknown>).factoryReset = factoryReset;
 (window as unknown as Record<string, unknown>).toggleDevMode = toggleDevMode;
 
 window.addEventListener('DOMContentLoaded', async () => {
@@ -1633,6 +2100,8 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (overlay) overlay.style.display = 'flex';
   }
   applyDevMode();
+  applyTagColors();
+  renderCustomisationSection();
   const savedTheme = localStorage.getItem('theme') || 'parchment';
   setTheme(savedTheme);
   // Set dynamic initial state labels
