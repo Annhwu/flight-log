@@ -1,6 +1,7 @@
 {
   "name": "flight-log",
   "version": "1.0.5",
+  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
