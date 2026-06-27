@@ -305,13 +305,13 @@ struct DcsDiag {
 
 #[tauri::command]
 fn dcs_diagnose(saved_games_path: String) -> DcsDiag {
-    let hook_path = PathBuf::from(&saved_games_path)
-        .join("Scripts").join("Hooks").join("FlightLogHook.lua");
-    let dir = PathBuf::from(&saved_games_path);
-    let dir_exists = dir.is_dir();
+    let base = PathBuf::from(&saved_games_path);
+    let hook_path = base.join("Scripts").join("Hooks").join("FlightLogHook.lua");
+    let dir_exists = base.is_dir();
+    let data_dir = base.join("FlightLog");
     let mut files: Vec<DcsDiagFile> = Vec::new();
     let mut importable = 0usize;
-    if let Ok(entries) = fs::read_dir(&dir) {
+    if let Ok(entries) = fs::read_dir(&data_dir) {
         for entry in entries.flatten() {
             let name = entry.file_name().to_string_lossy().into_owned();
             if name.starts_with("FlightLogSession_") && name.ends_with(".json") {
@@ -363,10 +363,23 @@ fn detect_dcs_path() -> Option<String> {
 
 #[tauri::command]
 fn install_dcs_hook(saved_games_path: String) -> Result<(), String> {
-    let hooks_dir = PathBuf::from(&saved_games_path).join("Scripts").join("Hooks");
+    let base = PathBuf::from(&saved_games_path);
+    let hooks_dir = base.join("Scripts").join("Hooks");
     fs::create_dir_all(&hooks_dir).map_err(|e| e.to_string())?;
-    let dest = hooks_dir.join("FlightLogHook.lua");
-    fs::write(&dest, LUA_HOOK).map_err(|e| e.to_string())
+    fs::write(hooks_dir.join("FlightLogHook.lua"), LUA_HOOK).map_err(|e| e.to_string())?;
+
+    // Create the data folder and migrate any loose session files left in the root.
+    let data_dir = base.join("FlightLog");
+    fs::create_dir_all(&data_dir).map_err(|e| e.to_string())?;
+    if let Ok(entries) = fs::read_dir(&base) {
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if name.starts_with("FlightLogSession_") && name.ends_with(".json") {
+                let _ = fs::rename(entry.path(), data_dir.join(&name));
+            }
+        }
+    }
+    Ok(())
 }
 
 struct SessionFileContent {
@@ -412,7 +425,10 @@ struct DcsSession {
 
 #[tauri::command]
 fn read_dcs_sessions(saved_games_path: String) -> Result<Vec<DcsSession>, String> {
-    let dir = PathBuf::from(&saved_games_path);
+    let dir = PathBuf::from(&saved_games_path).join("FlightLog");
+    if !dir.is_dir() {
+        return Ok(vec![]);
+    }
     let entries = fs::read_dir(&dir).map_err(|e| e.to_string())?;
     let mut sessions: Vec<DcsSession> = entries
         .flatten()
