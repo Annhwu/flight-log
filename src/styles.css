@@ -470,6 +470,17 @@ input[type="checkbox"]:checked::before{content:'';position:absolute;left:4px;top
 @keyframes blink{50%{opacity:0;}}
 #save-indicator{position:fixed;font-family:'Inter',sans-serif;font-size:13px;font-weight:500;background:var(--bg2);border:1.5px solid var(--border);color:var(--ink);padding:7px 14px;border-radius:6px;opacity:0;transition:opacity 0.2s;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,0.12);z-index:9999;}
 #save-indicator.show{opacity:1;}
+.dcs-pick-item{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--ink);cursor:pointer;transition:border-color 0.12s,background 0.12s,opacity 0.12s;}
+.dcs-pick-item:has(input:checked){background:linear-gradient(rgba(255,255,255,0.16),rgba(255,255,255,0.16)),var(--bg3);border-color:var(--ink3);}
+.dcs-pick-item:has(input:not(:checked)){opacity:0.8;}
+.dcs-pick-item:has(input:not(:checked)):hover{opacity:1;}
+.dcs-pick-item:hover{border-style:dashed;border-color:var(--ink2);background:linear-gradient(rgba(255,255,255,0.07),rgba(255,255,255,0.07)),var(--bg3);}
+.dcs-pick-title{font-weight:600;font-size:1.05em;color:#414134;}
+[data-theme="dark-brown"] .dcs-pick-title{color:var(--ink);}
+.dcs-pick-date{font-weight:500;font-size:0.9em;color:var(--ink);}
+.dcs-pick-meta{font-size:0.82em;color:var(--ink2);margin-left:8px;}
+.dcs-pick-sub{font-size:0.8em;color:var(--ink2);}
+.dcs-pick-flag{font-size:0.74em;color:var(--ink3);margin-left:8px;}
 @media(max-width:600px){
   .page{padding:8px;}
   #header{padding:10px 14px;}

@@ -342,6 +342,8 @@ function showSaveIndicator(): void {
     y = Math.min(Math.max(y, 8), window.innerHeight - h - 8);
     el.style.left = x + 'px';
     el.style.top = y + 'px';
+    el.style.right = 'auto';
+    el.style.bottom = 'auto';
   } else {
     el.style.right = '16px';
     el.style.bottom = '16px';
@@ -2270,6 +2272,296 @@ async function checkUpdateManual(): Promise<void> {
 }
 (window as unknown as Record<string, unknown>).checkUpdateManual = checkUpdateManual;
 
+// ─── DCS Auto-tracking ────────────────────────────────────────────────────────
+
+function dcsStatusMsg(msg: string, isError = false): void {
+  const el = document.getElementById('dcs-status-msg');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.color = isError ? '#c0392b' : 'var(--ink2)';
+  setTimeout(() => { if (el.textContent === msg) el.textContent = ''; }, 4000);
+}
+
+async function installDcsHook(): Promise<void> {
+  const path = (document.getElementById('dcs-path-input') as HTMLInputElement)?.value.trim();
+  if (!path) { dcsStatusMsg(t('dcs_install_err'), true); return; }
+  localStorage.setItem('dcsPath', path);
+  try {
+    await invoke('install_dcs_hook', { savedGamesPath: path });
+    dcsStatusMsg(t('dcs_install_ok'));
+  } catch (e) {
+    dcsStatusMsg(t('dcs_install_err'), true);
+  }
+}
+(window as unknown as Record<string, unknown>).installDcsHook = installDcsHook;
+
+type DcsRawSession = { path: string; file: string; startTs: number; endTs: number; durationMin: number; map: string; aircraft: string[] };
+let _dcsPending: DcsRawSession[] = [];
+
+// "Already imported" is derived from the real history (by start time), so it always
+// matches what's actually on screen. Deleting a card makes it importable again.
+function dcsHistoryStartTs(): Set<number> {
+  return new Set(sessions.map(s => s.startTs));
+}
+
+// DCS internal type name (from Export.LoGetSelfData().Name) → exact model name.
+// Only ugly internal names are remapped; clean ones (F-14B, Su-27, MiG-29A…) fall through.
+const DCS_AIRCRAFT_MAP: Record<string, string> = {
+  'FA-18C_hornet': 'F/A-18C', 'F-16C_50': 'F-16C', 'F-15ESE': 'F-15E',
+  'F-14A-135-GR': 'F-14A', 'F-4E-45MC': 'F-4E', 'F-5E-3': 'F-5E', 'F-86F Sabre': 'F-86F',
+  'A-10C_2': 'A-10C II', 'AH-64D_BLK_II': 'AH-64D', 'AV8BNA': 'AV-8B N/A', 'AJS37': 'AJS-37',
+  'Bf-109K-4': 'Bf 109 K-4', 'FW-190D9': 'Fw 190 D-9', 'FW-190A8': 'Fw 190 A-8',
+  'Hercules': 'C-130J', 'CH-47Fbl1': 'CH-47F', 'Ka-50_3': 'Ka-50 III', 'Mi-8MT': 'Mi-8MTV2',
+  'MiG-21Bis': 'MiG-21bis', 'MosquitoFBMkVI': 'Mosquito FB VI', 'OH58D': 'OH-58D',
+  'SpitfireLFMkIX': 'Spitfire LF Mk. IX', 'SpitfireLFMkIXCW': 'Spitfire LF Mk. IX',
+  'P-47D-30': 'P-47D', 'P-47D-40': 'P-47D', 'P-47D-30bl1': 'P-47D', 'P-51D-30-NA': 'P-51D',
+  'SA342Mistral': 'SA342 Mistral', 'SA342Minigun': 'SA342 Minigun',
+  'Mirage-F1CE': 'Mirage F1CE', 'Mirage-F1EE': 'Mirage F1EE',
+  'Mirage-F1BE': 'Mirage F1BE', 'Mirage-F1M-EE': 'Mirage F1M-EE',
+};
+
+// Returns the exact model name, or null if DCS only gave us a slot id / nothing.
+function mapDcsAircraft(raw: string): string | null {
+  if (!raw || /^\d+$/.test(raw)) return null;
+  if (DCS_AIRCRAFT_MAP[raw]) return DCS_AIRCRAFT_MAP[raw];
+  return raw.replace(/_/g, ' ').trim();
+}
+
+// DCS theatre name (mission.theatre) → app map name (DCS_MAPS.name).
+const DCS_THEATRE_MAP: Record<string, string> = {
+  'Caucasus': 'Caucasus',
+  'Nevada': 'Nevada Test and Training Range',
+  'Normandy': 'Normandie 1944', 'Normandy2': 'Normandie 2.0',
+  'PersianGulf': 'Golfe Persique', 'TheChannel': 'La Manche', 'Syria': 'Syrie',
+  'MarianaIslands': 'Marianas', 'MarianaIslandsWWII': 'Marianne WWII',
+  'Falklands': 'Atlantique Sud', 'SinaiMap': 'Sinaï', 'Sinai': 'Sinaï',
+  'Kola': 'Kola', 'Afghanistan': 'Afghanistan', 'GermanyCW': 'Cold War Germany', 'Iraq': 'Iraq',
+};
+
+// Returns the app map name, or null if no map was detected.
+function mapDcsTheatre(raw: string): string | null {
+  if (!raw) return null;
+  return DCS_THEATRE_MAP[raw] || raw;
+}
+
+// Maps a list of raw DCS type names to unique, clean module tags.
+function mapDcsAircraftList(raw: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const r of raw) {
+    const name = mapDcsAircraft(r);
+    if (name && !seen.has(name)) { seen.add(name); out.push(name); }
+  }
+  return out;
+}
+
+function addDcsSessionCards(list: DcsRawSession[]): void {
+  const now = Date.now();
+  list.forEach((s, i) => {
+    const ac = mapDcsAircraftList(s.aircraft);
+    const mp = mapDcsTheatre(s.map);
+    sessions.unshift({
+      id: now + i,
+      startTs: s.startTs,
+      endTs: s.endTs,
+      durationMin: s.durationMin,
+      maps: mp ? [mp] : undefined,
+      aircraft: ac.length ? ac : undefined,
+    });
+  });
+}
+
+function dcsPickOpen(pending: DcsRawSession[]): void {
+  _dcsPending = pending;
+  const list = document.getElementById('dcs-pick-list');
+  const overlay = document.getElementById('dcs-pick-overlay');
+  if (!list || !overlay) return;
+  const inHistory = dcsHistoryStartTs();
+  list.innerHTML = pending.map((s, i) => {
+    const start = new Date(s.startTs);
+    const dd = String(start.getDate()).padStart(2, '0');
+    const mm = String(start.getMonth() + 1).padStart(2, '0');
+    const yyyy = start.getFullYear();
+    const hh = String(start.getHours()).padStart(2, '0');
+    const mn = String(start.getMinutes()).padStart(2, '0');
+    const info = [mapDcsAircraftList(s.aircraft).join(', '), mapDcsTheatre(s.map)].filter(Boolean).join(' · ');
+    const already = inHistory.has(s.startTs);
+    return `<label class="dcs-pick-item">
+      <input type="checkbox" data-idx="${i}" ${already ? 'checked' : ''} style="accent-color:var(--accent);width:15px;height:15px;flex-shrink:0;">
+      <span style="flex:1;min-width:0;">
+        <span class="dcs-pick-date">${dd}/${mm}/${yyyy} ${hh}:${mn}</span>
+        <span class="dcs-pick-meta">${s.durationMin} min</span>
+        ${already ? `<span class="dcs-pick-flag">· ${t('dcs_already_imported')}</span>` : ''}
+        ${info ? `<br><span class="dcs-pick-sub">${info}</span>` : ''}
+      </span>
+    </label>`;
+  }).join('');
+  overlay.style.display = 'flex';
+}
+
+async function dcsPickConfirm(): Promise<void> {
+  const list = document.getElementById('dcs-pick-list');
+  const overlay = document.getElementById('dcs-pick-overlay');
+  if (!list || !overlay) return;
+  const checked = Array.from(list.querySelectorAll<HTMLInputElement>('input[data-idx]:checked'))
+    .map(el => _dcsPending[parseInt(el.dataset.idx!)]);
+  overlay.style.display = 'none';
+  if (!checked.length) return;
+  // Skip flights already in history (defensive — they show unchecked anyway)
+  const inHistory = dcsHistoryStartTs();
+  const toAdd = checked.filter(s => !inHistory.has(s.startTs));
+  if (!toAdd.length) return;
+  addDcsSessionCards(toAdd);
+  renderSessions(); updateTotal(); await saveToFile();
+  dcsStatusMsg(t('dcs_import_ok', { count: toAdd.length }));
+}
+(window as unknown as Record<string, unknown>).dcsPickConfirm = dcsPickConfirm;
+
+async function dcsPickDelete(): Promise<void> {
+  const list = document.getElementById('dcs-pick-list');
+  const overlay = document.getElementById('dcs-pick-overlay');
+  if (!list || !overlay) return;
+  const checked = Array.from(list.querySelectorAll<HTMLInputElement>('input[data-idx]:checked'))
+    .map(el => _dcsPending[parseInt(el.dataset.idx!)]);
+  if (!checked.length) return;
+  try {
+    await invoke('delete_dcs_sessions', {
+      filePaths: checked.map(s => s.path),
+    });
+    _dcsPending = _dcsPending.filter(s => !checked.includes(s));
+    if (_dcsPending.length === 0) {
+      overlay.style.display = 'none';
+      dcsStatusMsg(t('dcs_sessions_deleted'));
+    } else {
+      dcsPickOpen(_dcsPending);
+    }
+  } catch (e) {
+    dcsStatusMsg(t('dcs_install_err'), true);
+  }
+}
+(window as unknown as Record<string, unknown>).dcsPickDelete = dcsPickDelete;
+
+function dcsPickClose(): void {
+  const overlay = document.getElementById('dcs-pick-overlay');
+  if (overlay) overlay.style.display = 'none';
+}
+(window as unknown as Record<string, unknown>).dcsPickClose = dcsPickClose;
+
+async function importDcsSessions(silent = false): Promise<void> {
+  const path = (document.getElementById('dcs-path-input') as HTMLInputElement)?.value.trim()
+             || localStorage.getItem('dcsPath') || '';
+  if (!path) { if (!silent) dcsStatusMsg(t('dcs_install_err'), true); return; }
+  try {
+    const raw = await invoke<DcsRawSession[]>('read_dcs_sessions', { savedGamesPath: path });
+    if (silent) {
+      // Auto-import: flights started after the watermark and not already in history.
+      // Advance the watermark past everything imported so a deleted card is never re-grabbed.
+      const since = parseInt(localStorage.getItem('dcsAutoSince') || '0', 10);
+      const inHistory = dcsHistoryStartTs();
+      const pending = raw.filter(s => s.startTs >= since && !inHistory.has(s.startTs));
+      if (!pending.length) return;
+      addDcsSessionCards(pending);
+      const maxTs = Math.max(...pending.map(s => s.startTs));
+      localStorage.setItem('dcsAutoSince', String(maxTs + 1));
+      renderSessions(); updateTotal(); await saveToFile();
+      dcsStatusMsg(t('dcs_import_ok', { count: pending.length }));
+    } else {
+      // Manual: show ALL recorded flights so any can be (re)imported anytime
+      if (!raw.length) { dcsStatusMsg(t('dcs_import_none')); return; }
+      dcsPickOpen(raw);
+    }
+  } catch (e) {
+    if (!silent) dcsStatusMsg(t('dcs_install_err'), true);
+  }
+}
+(window as unknown as Record<string, unknown>).importDcsSessions = importDcsSessions;
+
+let _dcsWatchInterval: ReturnType<typeof setInterval> | null = null;
+
+function startDcsWatch(): void {
+  if (_dcsWatchInterval) return;
+  _dcsWatchInterval = setInterval(() => { importDcsSessions(true); }, 10_000);
+}
+
+function stopDcsWatch(): void {
+  if (_dcsWatchInterval) { clearInterval(_dcsWatchInterval); _dcsWatchInterval = null; }
+}
+
+async function dcsDiagnose(): Promise<void> {
+  const path = (document.getElementById('dcs-path-input') as HTMLInputElement)?.value.trim()
+             || localStorage.getItem('dcsPath') || '';
+  const el = document.getElementById('dcs-diag-result');
+  if (!el) return;
+  if (!path) { el.style.display = 'block'; el.textContent = t('dcs_diag_no_path'); return; }
+  try {
+    type DiagFile = { name: string; raw: string; parses: boolean; done: boolean; duration_min: number };
+    const d = await invoke<{ hook_installed: boolean; hook_path: string; dir_exists: boolean; total_files: number; importable: number; files: DiagFile[] }>('dcs_diagnose', { savedGamesPath: path });
+    el.style.display = 'block';
+    const yes = t('dcs_diag_yes'), no = t('dcs_diag_no');
+    const lines = [
+      `${t('dcs_diag_dir_valid')} : <b>${d.dir_exists ? yes : no}</b>`,
+      `${t('dcs_diag_hook')} : <b>${d.hook_installed ? yes : no}</b>`,
+      `${t('dcs_diag_files_found')} : <b>${d.total_files}</b>`,
+      `${t('dcs_diag_importable')} : <b>${d.importable}</b>`,
+    ];
+    if (d.files.length) {
+      lines.push(`<br><b>${t('dcs_diag_recent')}</b>`);
+      d.files.slice(0, 5).forEach(f => {
+        const flags = [
+          f.parses ? t('dcs_diag_readable') : t('dcs_diag_unreadable'),
+          f.done ? t('dcs_diag_done') : t('dcs_diag_ongoing'),
+          `${f.duration_min} min`,
+        ].join(' · ');
+        lines.push(`• <b>${f.name}</b> — ${flags}`);
+        lines.push(`<span style="opacity:0.7;word-break:break-all;">${f.raw.replace(/</g, '&lt;')}</span>`);
+      });
+    } else {
+      lines.push(`<br>${t('dcs_diag_none')}`);
+    }
+    el.innerHTML = lines.join('<br>');
+  } catch (e) {
+    el.style.display = 'block';
+    el.textContent = t('dcs_diag_error') + e;
+  }
+}
+(window as unknown as Record<string, unknown>).dcsDiagnose = dcsDiagnose;
+
+function setDcsAutoImport(enabled: boolean): void {
+  localStorage.setItem('dcsAutoImport', enabled ? '1' : '0');
+  const hint = document.getElementById('dcs-auto-hint');
+  if (hint) hint.style.display = enabled ? 'block' : 'none';
+  if (enabled) {
+    // Baseline: only flights started from now on get auto-imported
+    localStorage.setItem('dcsAutoSince', String(Date.now()));
+    startDcsWatch();
+  } else {
+    localStorage.removeItem('dcsAutoSince');
+    stopDcsWatch();
+  }
+}
+(window as unknown as Record<string, unknown>).setDcsAutoImport = setDcsAutoImport;
+
+async function initDcsSettings(): Promise<void> {
+  const pathInput = document.getElementById('dcs-path-input') as HTMLInputElement | null;
+  const toggle = document.getElementById('toggle-dcs-auto') as HTMLInputElement | null;
+  const enabled = localStorage.getItem('dcsAutoImport') === '1';
+  if (toggle) toggle.checked = enabled;
+  const hint = document.getElementById('dcs-auto-hint');
+  if (hint) hint.style.display = enabled ? 'block' : 'none';
+  const saved = localStorage.getItem('dcsPath') || '';
+  if (pathInput) {
+    if (saved) {
+      pathInput.value = saved;
+    } else {
+      const detected = await invoke<string | null>('detect_dcs_path').catch(() => null);
+      if (detected) {
+        pathInput.value = detected;
+        localStorage.setItem('dcsPath', detected);
+      }
+    }
+  }
+}
+
 window.addEventListener('DOMContentLoaded', async () => {
   const isFirstLaunch = !localStorage.getItem('lang');
   await initI18n();
@@ -2306,6 +2598,15 @@ window.addEventListener('DOMContentLoaded', async () => {
     const el = document.getElementById('st-version');
     if (el) el.textContent = `v${v}`;
   }).catch(() => {});
+
+  initDcsSettings();
+
+  // Resume DCS auto-import watcher only — no bulk import on launch.
+  // Flights started after dcsAutoSince are caught by the watcher; old backlog stays untouched.
+  if (localStorage.getItem('dcsAutoImport') === '1') {
+    const dcsPath = localStorage.getItem('dcsPath') || '';
+    if (dcsPath) startDcsWatch();
+  }
 
   // Startup update check (silent — read pref from localStorage)
   const _inclPre = localStorage.getItem('updateIncludePrerelease') === '1';
