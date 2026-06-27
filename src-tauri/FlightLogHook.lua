@@ -1,5 +1,5 @@
 -- FlightLog DCS Hook
--- Creates one JSON file per session in Saved Games/DCS/
+-- Creates one JSON file per session in Saved Games/DCS/FlightLog/
 -- Start/end are IRL epoch seconds (os.time). Aircraft = list of internal type names flown.
 
 local FlightLog = {}
@@ -88,7 +88,9 @@ function FlightLog.onMissionLoadEnd()
     sessionAircraft = {}
     lastSample      = 0
     addAircraft(safeGetAircraft())
-    sessionFile     = lfs.writedir() .. 'FlightLogSession_' .. sessionStart .. '.json'
+    local dir = lfs.writedir() .. 'FlightLog'
+    lfs.mkdir(dir)
+    sessionFile     = dir .. '/FlightLogSession_' .. sessionStart .. '.json'
     writeSession(0, false)
 end
 
