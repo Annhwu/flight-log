@@ -89,6 +89,27 @@
         </div>
         <div id="st-content">
           <div class="st-section">
+            <div class="st-section-title" onclick="toggleSection(this)"><span class="st-chevron">▾</span><span data-i18n="dcs_section">DCS Auto-tracking</span></div>
+            <div class="st-section-body">
+              <div class="st-row">
+                <label class="st-label" data-i18n="dcs_path_label">Dossier Saved Games/DCS</label>
+                <input type="text" id="dcs-path-input" class="debrief-input" style="flex:1;padding:5px 10px;" data-i18n-ph="dcs_path_placeholder" placeholder="C:\Users\...\Saved Games\DCS">
+              </div>
+              <div class="st-btn-row" style="gap:8px;flex-wrap:wrap;align-items:center;">
+                <button class="btn-sm" onclick="installDcsHook()" data-i18n="dcs_install_btn">Installer le hook</button>
+                <button class="btn-sm" onclick="importDcsSessions()" data-i18n="dcs_import_btn">Importer les sessions DCS</button>
+                <button class="btn-sm" onclick="dcsDiagnose()" data-i18n="dcs_diagnose_btn">Diagnostiquer</button>
+                <span id="dcs-status-msg" style="font-size:0.82em;color:var(--ink2);"></span>
+              </div>
+              <div id="dcs-diag-result" style="font-size:0.78em;color:var(--ink2);margin-top:6px;line-height:1.6;display:none;"></div>
+              <label class="pf-checkbox-label" style="margin-top:6px;">
+                <input type="checkbox" id="toggle-dcs-auto" onchange="setDcsAutoImport(this.checked)">
+                <span data-i18n="dcs_auto_label">Importer automatiquement les nouveaux vols</span>
+              </label>
+              <div id="dcs-auto-hint" style="font-size:0.76em;color:var(--ink2);margin-top:2px;display:none;" data-i18n="dcs_auto_hint">Les vols lancés à partir de maintenant seront ajoutés automatiquement.</div>
+            </div>
+          </div>
+          <div class="st-section">
             <div class="st-section-title" onclick="toggleSection(this)"><span class="st-chevron">▾</span><span data-i18n="settings_profile_section">Profil</span></div>
             <div class="st-section-body">
               <div class="st-btn-row">
@@ -328,6 +349,20 @@
         <input type="checkbox" id="tray-remember">
         <span data-i18n="tray_remember">Se souvenir de mon choix</span>
       </label>
+    </div>
+  </div>
+
+  <div id="dcs-pick-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);align-items:center;justify-content:center;z-index:300;">
+    <div class="confirm-modal" style="max-width:480px;width:100%;gap:16px;">
+      <div class="dcs-pick-title" data-i18n="dcs_pick_title">Importer des vols DCS</div>
+      <div id="dcs-pick-list" style="display:flex;flex-direction:column;gap:8px;max-height:340px;overflow-y:auto;padding-right:2px;"></div>
+      <div style="display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap;align-items:center;">
+        <button class="btn-sm" style="background:#7a2020;color:#f5c0c0;border-color:#a33;" onclick="dcsPickDelete()" data-i18n="dcs_pick_delete">Supprimer la sélection</button>
+        <div style="display:flex;gap:8px;">
+          <button class="btn-sm" style="background:var(--accent);color:var(--accent-text);" onclick="dcsPickConfirm()" data-i18n="dcs_pick_import">Importer la sélection</button>
+          <button class="btn-sm btn-cancel" onclick="dcsPickClose()" data-i18n="dcs_pick_cancel">Annuler</button>
+        </div>
+      </div>
     </div>
   </div>
 

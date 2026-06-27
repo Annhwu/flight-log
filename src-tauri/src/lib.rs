@@ -280,6 +280,179 @@ fn set_tray_labels(state: tauri::State<'_, TrayItems>, session: String, quit: St
     if let Ok(item) = state.quit.lock()    { let _ = item.set_text(&quit);    }
 }
 
+// ─── DCS hook commands ───────────────────────────────────────────────────────
+
+const LUA_HOOK: &str = include_str!("../FlightLogHook.lua");
+
+#[derive(serde::Serialize)]
+struct DcsDiagFile {
+    name: String,
+    raw: String,
+    parses: bool,
+    done: bool,
+    duration_min: i64,
+}
+
+#[derive(serde::Serialize)]
+struct DcsDiag {
+    hook_installed: bool,
+    hook_path: String,
+    dir_exists: bool,
+    total_files: usize,
+    importable: usize,
+    files: Vec<DcsDiagFile>,
+}
+
+#[tauri::command]
+fn dcs_diagnose(saved_games_path: String) -> DcsDiag {
+    let hook_path = PathBuf::from(&saved_games_path)
+        .join("Scripts").join("Hooks").join("FlightLogHook.lua");
+    let dir = PathBuf::from(&saved_games_path);
+    let dir_exists = dir.is_dir();
+    let mut files: Vec<DcsDiagFile> = Vec::new();
+    let mut importable = 0usize;
+    if let Ok(entries) = fs::read_dir(&dir) {
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if name.starts_with("FlightLogSession_") && name.ends_with(".json") {
+                let raw = fs::read_to_string(entry.path()).unwrap_or_default();
+                let parsed = parse_session_file(&raw);
+                let (parses, done, duration_min) = match &parsed {
+                    Some(s) => {
+                        let dur = if s.end > s.start && s.start > 0 { (s.end - s.start) / 60 } else { 0 };
+                        if s.done && dur >= 1 { importable += 1; }
+                        (true, s.done, dur)
+                    }
+                    None => (false, false, 0),
+                };
+                files.push(DcsDiagFile {
+                    name,
+                    raw: raw.chars().take(200).collect(),
+                    parses,
+                    done,
+                    duration_min,
+                });
+            }
+        }
+    }
+    files.sort_by(|a, b| b.name.cmp(&a.name));
+    let total_files = files.len();
+    files.truncate(5);
+    DcsDiag {
+        hook_installed: hook_path.exists(),
+        hook_path: hook_path.to_string_lossy().to_string(),
+        dir_exists,
+        total_files,
+        importable,
+        files,
+    }
+}
+
+#[tauri::command]
+fn detect_dcs_path() -> Option<String> {
+    let user_profile = std::env::var("USERPROFILE").ok()?;
+    let base = PathBuf::from(&user_profile).join("Saved Games");
+    for candidate in ["DCS", "DCS.openbeta"] {
+        let path = base.join(candidate);
+        if path.exists() {
+            return Some(path.to_string_lossy().to_string());
+        }
+    }
+    None
+}
+
+#[tauri::command]
+fn install_dcs_hook(saved_games_path: String) -> Result<(), String> {
+    let hooks_dir = PathBuf::from(&saved_games_path).join("Scripts").join("Hooks");
+    fs::create_dir_all(&hooks_dir).map_err(|e| e.to_string())?;
+    let dest = hooks_dir.join("FlightLogHook.lua");
+    fs::write(&dest, LUA_HOOK).map_err(|e| e.to_string())
+}
+
+struct SessionFileContent {
+    start: i64,
+    end: i64,
+    map: String,
+    aircraft: Vec<String>,
+    done: bool,
+}
+
+// Lenient parser: tolerates aircraft as a string (old format) or array (new format),
+// and missing fields. Returns None only for genuinely unreadable JSON.
+fn parse_session_file(raw: &str) -> Option<SessionFileContent> {
+    let v: serde_json::Value = serde_json::from_str(raw).ok()?;
+    let aircraft = match v.get("aircraft") {
+        Some(serde_json::Value::Array(a)) =>
+            a.iter().filter_map(|x| x.as_str().map(String::from)).collect(),
+        Some(serde_json::Value::String(s)) if !s.is_empty() => vec![s.clone()],
+        _ => vec![],
+    };
+    Some(SessionFileContent {
+        start: v.get("start").and_then(|x| x.as_i64()).unwrap_or(0),
+        end: v.get("end").and_then(|x| x.as_i64()).unwrap_or(0),
+        map: v.get("map").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+        aircraft,
+        done: v.get("done").and_then(|x| x.as_bool()).unwrap_or(false),
+    })
+}
+
+#[derive(serde::Serialize)]
+struct DcsSession {
+    path: String,
+    file: String,
+    #[serde(rename = "startTs")]
+    start_ts: i64,
+    #[serde(rename = "endTs")]
+    end_ts: i64,
+    #[serde(rename = "durationMin")]
+    duration_min: i64,
+    pub map: String,
+    pub aircraft: Vec<String>,
+}
+
+#[tauri::command]
+fn read_dcs_sessions(saved_games_path: String) -> Result<Vec<DcsSession>, String> {
+    let dir = PathBuf::from(&saved_games_path);
+    let entries = fs::read_dir(&dir).map_err(|e| e.to_string())?;
+    let mut sessions: Vec<DcsSession> = entries
+        .flatten()
+        .filter_map(|entry| {
+            let path = entry.path();
+            let name = path.file_name()?.to_string_lossy().into_owned();
+            if !name.starts_with("FlightLogSession_") || !name.ends_with(".json") {
+                return None;
+            }
+            let content = parse_session_file(&fs::read_to_string(&path).ok()?)?;
+            if !content.done || content.start <= 0 || content.end <= 0 {
+                return None;
+            }
+            let start_ts = content.start * 1000;
+            let end_ts = content.end * 1000;
+            let duration_min = (content.end - content.start) / 60;
+            if duration_min < 1 { return None; }
+            Some(DcsSession {
+                path: path.to_string_lossy().into_owned(),
+                file: name,
+                start_ts,
+                end_ts,
+                duration_min,
+                map: content.map,
+                aircraft: content.aircraft,
+            })
+        })
+        .collect();
+    sessions.sort_by_key(|s| s.start_ts);
+    Ok(sessions)
+}
+
+#[tauri::command]
+fn delete_dcs_sessions(file_paths: Vec<String>) -> Result<(), String> {
+    for p in file_paths {
+        fs::remove_file(&p).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 // ─── Data commands ────────────────────────────────────────────────────────────
 
 fn data_path(app: &tauri::AppHandle) -> PathBuf {
@@ -382,6 +555,11 @@ pub fn run() {
             get_pending_update,
             get_app_version,
             set_tray_labels,
+            dcs_diagnose,
+            detect_dcs_path,
+            install_dcs_hook,
+            read_dcs_sessions,
+            delete_dcs_sessions,
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
