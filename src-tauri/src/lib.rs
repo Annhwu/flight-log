@@ -4,6 +4,7 @@ use std::sync::Mutex;
 use tauri::{Emitter, Manager};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
+use regex::Regex;
 
 const GITHUB_REPO: &str = "Annhwu/flight-log";
 
@@ -469,6 +470,200 @@ fn delete_dcs_sessions(file_paths: Vec<String>) -> Result<(), String> {
     Ok(())
 }
 
+// ─── Steam import ─────────────────────────────────────────────────────────────
+
+#[derive(serde::Serialize, Clone, Debug)]
+pub struct SteamProfile {
+    pub steam_id: String,
+    pub name: String,
+    pub avatar_path: Option<String>,
+    pub dcs_minutes: u64,
+    pub dcs_last_played: u64,
+}
+
+/// Lit une valeur simple dans un bloc VDF texte.
+/// Cherche la première occurrence de `"key"   "value"` et retourne `value`.
+fn vdf_get(content: &str, key: &str) -> Option<String> {
+    let pattern = format!(r#""{}"\s+"([^"]+)""#, regex::escape(key));
+    let re = Regex::new(&pattern).ok()?;
+    re.captures(content)
+        .and_then(|c| c.get(1))
+        .map(|m| m.as_str().to_string())
+}
+
+/// Lit le pseudo depuis loginusers.vdf : cherche le premier bloc qui contient
+/// `"AccountName"` suivi de `"PersonaName"` pour chaque SteamID.
+fn read_login_users(steam_root: &PathBuf) -> std::collections::HashMap<String, String> {
+    let mut map = std::collections::HashMap::new();
+    let path = steam_root.join("config").join("loginusers.vdf");
+    let content = match fs::read_to_string(&path) {
+        Ok(c) => c,
+        Err(_) => return map,
+    };
+    // Cherche chaque entrée "76561..." { ... "PersonaName" "xxx" ... }
+    let re_id = Regex::new(r#""(765\d{14})"\s*\{"#).unwrap();
+    let re_name = Regex::new(r#""PersonaName"\s+"([^"]+)""#).unwrap();
+    for id_cap in re_id.captures_iter(&content) {
+        let id = id_cap[1].to_string();
+        // Cherche le bloc après la position de l'ID
+        let start = id_cap.get(0).map(|m| m.end()).unwrap_or(0);
+        let slice = &content[start..];
+        // Prend les ~500 premiers caractères du bloc (performance)
+        let window = &slice[..slice.len().min(500)];
+        if let Some(name_cap) = re_name.captures(window) {
+            map.insert(id, name_cap[1].to_string());
+        }
+    }
+    map
+}
+
+/// Tente de détecter le chemin d'installation de Steam.
+fn detect_steam_root() -> Option<PathBuf> {
+    // 1. Chemin par défaut
+    let default = PathBuf::from(r"C:\Program Files (x86)\Steam");
+    if default.is_dir() { return Some(default); }
+
+    // 2. Registre Windows (HKCU\Software\Valve\Steam\SteamPath)
+    #[cfg(target_os = "windows")]
+    {
+        use std::process::Command;
+        let out = Command::new("reg")
+            .args(["query", r"HKCU\Software\Valve\Steam", "/v", "SteamPath"])
+            .output().ok()?;
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        let re = Regex::new(r"SteamPath\s+REG_SZ\s+(.+)").ok()?;
+        if let Some(cap) = re.captures(&stdout) {
+            let p = PathBuf::from(cap[1].trim());
+            if p.is_dir() { return Some(p); }
+        }
+    }
+    None
+}
+
+#[tauri::command]
+fn scan_steam_profiles() -> Vec<SteamProfile> {
+    let steam_root = match detect_steam_root() {
+        Some(p) => p,
+        None => return vec![],
+    };
+
+    let userdata = steam_root.join("userdata");
+    if !userdata.is_dir() { return vec![]; }
+
+    // Charger les pseudos depuis loginusers.vdf
+    let login_names = read_login_users(&steam_root);
+
+    let mut profiles: Vec<SteamProfile> = Vec::new();
+
+    let entries = match fs::read_dir(&userdata) {
+        Ok(e) => e,
+        Err(_) => return vec![],
+    };
+
+    for entry in entries.flatten() {
+        let steam_id = entry.file_name().to_string_lossy().into_owned();
+        // Ignorer les entrées non-numériques (dossiers système)
+        if !steam_id.chars().all(|c| c.is_ascii_digit()) { continue; }
+
+        let config_path = entry.path().join("config").join("localconfig.vdf");
+        if !config_path.exists() { continue; }
+
+        let content = match fs::read_to_string(&config_path) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+
+        // Cherche le bloc de l'app DCS (ID 223750)
+        // Structure : "apps" { ... "223750" { "playtime_forever" "xxx" "last_played" "yyy" } ... }
+        let re_app = Regex::new(r#""223750"\s*\{([^}]*)\}"#).unwrap();
+        let dcs_block = match re_app.captures(&content) {
+            Some(c) => c[1].to_string(),
+            None => continue, // DCS non trouvé pour ce profil
+        };
+
+        let dcs_minutes: u64 = vdf_get(&dcs_block, "Playtime")
+            .or_else(|| vdf_get(&dcs_block, "playtime_forever"))
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(0);
+        let dcs_last_played: u64 = vdf_get(&dcs_block, "LastPlayed")
+            .or_else(|| vdf_get(&dcs_block, "last_played"))
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(0);
+
+        // Pseudo : loginusers.vdf (SteamID64) ou PlayerName dans localconfig.vdf
+        // L'ID dans userdata est un SteamID3 (accountid), on cherche aussi directement
+        let name = login_names
+            .iter()
+            .find(|(_, _)| {
+                // Tente de matcher via accountid (les 32 derniers bits du SteamID64)
+                // SteamID64 = 76561197960265728 + accountid
+                steam_id.parse::<u64>().ok().map(|aid| {
+                    let sid64 = 76561197960265728u64.saturating_add(aid);
+                    login_names.contains_key(&sid64.to_string())
+                }).unwrap_or(false)
+            })
+            .map(|(_, v)| v.clone())
+            .or_else(|| {
+                // Fallback : cherche depuis SteamID64 directement
+                let aid: u64 = steam_id.parse().unwrap_or(0);
+                let sid64 = 76561197960265728u64.saturating_add(aid);
+                login_names.get(&sid64.to_string()).cloned()
+            })
+            .or_else(|| vdf_get(&content, "PlayerName"))
+            .unwrap_or_else(|| format!("Steam #{}", steam_id));
+
+        // Avatar : Steam\config\avatarcache\{accountid}.jpg ou {steamid64}.png/.jpg
+        let avatar_path = {
+            let cache = steam_root.join("config").join("avatarcache");
+            let aid: u64 = steam_id.parse().unwrap_or(0);
+            let sid64 = 76561197960265728u64.saturating_add(aid);
+            let mut found = None;
+            for ext in ["png", "jpg", "jpeg"] {
+                let p = cache.join(format!("{}.{}", sid64, ext));
+                if p.exists() {
+                    found = Some(p.to_string_lossy().into_owned());
+                    break;
+                }
+                let p_id = cache.join(format!("{}.{}", steam_id, ext));
+                if p_id.exists() {
+                    found = Some(p_id.to_string_lossy().into_owned());
+                    break;
+                }
+            }
+            if found.is_none() {
+                let p_no_ext = cache.join(sid64.to_string());
+                if p_no_ext.exists() {
+                    found = Some(p_no_ext.to_string_lossy().into_owned());
+                }
+            }
+            found
+        };
+
+        profiles.push(SteamProfile {
+            steam_id,
+            name,
+            avatar_path,
+            dcs_minutes,
+            dcs_last_played,
+        });
+    }
+
+    // Trier par heures décroissantes
+    profiles.sort_by(|a, b| b.dcs_minutes.cmp(&a.dcs_minutes));
+    profiles
+}
+
+#[tauri::command]
+fn get_steam_avatar(path: String) -> Option<String> {
+    let bytes = fs::read(&path).ok()?;
+    use base64::Engine as _;
+    let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
+    // Détecter le type MIME basique
+    let mime = if path.to_lowercase().ends_with(".png") { "image/png" }
+               else { "image/jpeg" };
+    Some(format!("data:{};base64,{}", mime, encoded))
+}
+
 // ─── Data commands ────────────────────────────────────────────────────────────
 
 fn data_path(app: &tauri::AppHandle) -> PathBuf {
@@ -576,6 +771,8 @@ pub fn run() {
             install_dcs_hook,
             read_dcs_sessions,
             delete_dcs_sessions,
+            scan_steam_profiles,
+            get_steam_avatar,
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {

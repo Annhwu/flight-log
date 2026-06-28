@@ -121,6 +121,10 @@ declare global {
     loadFile: (event: Event) => void;
     toggleSteamEdit: () => void;
     saveSteam: () => Promise<void>;
+    importSteamHours: () => Promise<void>;
+    steamPickConfirm: () => Promise<void>;
+    steamPickClose: () => void;
+    updateSteamPickStatus: () => void;
     toggleEdit: (id: number) => void;
     cancelEdit: (id: number) => void;
     saveEdit: (id: number) => Promise<void>;
@@ -453,6 +457,141 @@ async function saveSteam(): Promise<void> {
   updateTotal();
   await saveToFile();
 }
+
+// ─── Steam auto-import ─────────────────────────────────────────────────────
+
+interface SteamProfile {
+  steam_id: string;
+  name: string;
+  avatar_path: string | null;
+  dcs_minutes: number;
+  dcs_last_played: number;
+}
+
+let _steamPickProfiles: SteamProfile[] = [];
+let _steamPickAvatars: Map<string, string> = new Map();
+
+async function importSteamHours(): Promise<void> {
+  const statusEl = document.getElementById('steam-pick-status');
+  const overlay = document.getElementById('steam-pick-overlay') as HTMLElement;
+  const list = document.getElementById('steam-pick-list') as HTMLElement;
+
+  // Afficher le modal avec chargement
+  overlay.style.display = 'flex';
+  list.innerHTML = `<div style="text-align:center;padding:24px;color:var(--ink3);font-size:0.9em;">${t('steam_scanning')}</div>`;
+  if (statusEl) statusEl.textContent = '';
+
+  try {
+    const profiles = await invoke<SteamProfile[]>('scan_steam_profiles');
+    _steamPickProfiles = profiles;
+
+    if (!profiles.length) {
+      list.innerHTML = `<div style="text-align:center;padding:24px;color:var(--ink3);font-size:0.9em;">${t('steam_no_profile')}</div>`;
+      return;
+    }
+
+    // Pré-charger les avatars
+    _steamPickAvatars.clear();
+    await Promise.all(profiles.map(async (p) => {
+      if (p.avatar_path) {
+        try {
+          const data = await invoke<string | null>('get_steam_avatar', { path: p.avatar_path });
+          if (data) _steamPickAvatars.set(p.steam_id, data);
+        } catch { /* avatar indisponible */ }
+      }
+    }));
+
+    renderSteamPickList(profiles);
+  } catch (e) {
+    list.innerHTML = `<div style="text-align:center;padding:24px;color:var(--ink3);font-size:0.85em;">${t('steam_scan_error')}: ${e}</div>`;
+  }
+}
+
+function renderSteamPickList(profiles: SteamProfile[]): void {
+  const list = document.getElementById('steam-pick-list') as HTMLElement;
+  if (!profiles.length) return;
+
+  // Si 1 seul profil, le pré-sélectionner
+  const autoSelect = profiles.length === 1;
+
+  list.innerHTML = profiles.map((p, i) => {
+    const avatarSrc = _steamPickAvatars.get(p.steam_id);
+    const avatarHtml = avatarSrc
+      ? `<img src="${avatarSrc}" class="steam-profile-avatar" alt="${escapeHtml(p.name)}">`
+      : `<div class="steam-profile-avatar steam-profile-avatar-gen">${escapeHtml(p.name.charAt(0).toUpperCase())}</div>`;
+
+    const hours = minsToHM(p.dcs_minutes);
+    const lastPlayed = p.dcs_last_played > 0
+      ? new Date(p.dcs_last_played * 1000).toLocaleDateString(getLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' })
+      : '—';
+
+    const checked = autoSelect ? 'checked' : '';
+    return `
+    <label class="steam-profile-card ${autoSelect && i === 0 ? 'selected' : ''}" for="sp-chk-${i}">
+      <input type="checkbox" id="sp-chk-${i}" class="steam-profile-checkbox" data-idx="${i}" ${checked}
+        onchange="this.closest('.steam-profile-card').classList.toggle('selected', this.checked); updateSteamPickStatus()">
+      ${avatarHtml}
+      <div class="steam-profile-info">
+        <div class="steam-profile-name">${escapeHtml(p.name)}</div>
+        <div class="steam-profile-id">ID: ${escapeHtml(p.steam_id)}</div>
+        <div class="steam-profile-meta">
+          <span class="steam-profile-hours">
+            <img src="./icons/steam.svg" alt="" class="steam-card-hours-icon">
+            <span>${hours} DCS</span>
+          </span>
+          <span class="steam-profile-last">${t('steam_last_played')} ${lastPlayed}</span>
+        </div>
+      </div>
+      <div class="steam-profile-check"></div>
+    </label>`;
+  }).join('');
+
+  updateSteamPickStatus();
+}
+
+function updateSteamPickStatus(): void {
+  const statusEl = document.getElementById('steam-pick-status');
+  if (!statusEl) return;
+  const selected = Array.from(document.querySelectorAll<HTMLInputElement>('#steam-pick-list .steam-profile-checkbox:checked'));
+  const totalMin = selected.reduce((acc, cb) => {
+    const idx = parseInt(cb.dataset.idx ?? '0');
+    return acc + (_steamPickProfiles[idx]?.dcs_minutes ?? 0);
+  }, 0);
+  if (selected.length === 0) {
+    statusEl.textContent = '';
+  } else {
+    statusEl.textContent = `${selected.length} profil(s) · ${minsToHM(totalMin)}`;
+  }
+}
+
+async function steamPickConfirm(): Promise<void> {
+  const selected = Array.from(document.querySelectorAll<HTMLInputElement>('#steam-pick-list .steam-profile-checkbox:checked'));
+  if (!selected.length) { steamPickClose(); return; }
+
+  const totalMin = selected.reduce((acc, cb) => {
+    const idx = parseInt(cb.dataset.idx ?? '0');
+    return acc + (_steamPickProfiles[idx]?.dcs_minutes ?? 0);
+  }, 0);
+
+  steamMinutes = totalMin;
+  steamPickClose();
+  updateSteamDisplay();
+  updateTotal();
+  await saveToFile();
+}
+
+function steamPickClose(): void {
+  const overlay = document.getElementById('steam-pick-overlay') as HTMLElement;
+  overlay.style.display = 'none';
+  _steamPickProfiles = [];
+  _steamPickAvatars.clear();
+}
+
+(window as unknown as Record<string, unknown>).importSteamHours = importSteamHours;
+(window as unknown as Record<string, unknown>).steamPickConfirm = steamPickConfirm;
+(window as unknown as Record<string, unknown>).steamPickClose = steamPickClose;
+(window as unknown as Record<string, unknown>).updateSteamPickStatus = updateSteamPickStatus;
+
 
 // ─── Total ─────────────────────────────────────────────────────────────────
 
