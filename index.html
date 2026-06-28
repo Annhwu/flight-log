@@ -262,7 +262,10 @@
       </div>
       <div id="log-page">
         <div id="log-header">
-          <div id="log-title" data-i18n="history_title">Historique</div>
+          <div id="log-tabs">
+            <button id="tab-history" class="log-tab active" onclick="setLogView(false)" data-i18n="history_title">Historique</button>
+            <button id="tab-audits" class="log-tab" onclick="setLogView(true)" data-i18n="trash_view">Audits</button>
+          </div>
           <div id="session-count"></div>
         </div>
         <div id="main">

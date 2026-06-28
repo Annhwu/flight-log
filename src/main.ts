@@ -36,6 +36,7 @@ interface Session {
   aircraft?: string[];
   missionTypes?: string[];
   maps?: string[];
+  deletedAt?: number;
 }
 
 const MISSION_TYPES = ['Training', 'CAP', 'CAS', 'SEAD', 'Strike', 'Intercept', 'Recon', 'Anti-Ship'];
@@ -91,6 +92,7 @@ interface Profile {
 interface AppData {
   steamMinutes: number;
   sessions: Session[];
+  deletedSessions?: Session[];
   profile?: Profile;
   ownedMaps?: string[];
   ownedModules?: string[];
@@ -208,6 +210,8 @@ const DCS_MODULES: DCSModule[] = [
 ];
 
 let sessions: Session[] = [];
+let deletedSessions: Session[] = [];
+let viewingTrash = false;
 let steamMinutes = 0;
 let activeStart: Date | null = null;
 let elapsedInterval: number | null = null;
@@ -235,7 +239,7 @@ function durLabel(min: number): string { const d = Math.floor(min / 1440), h = M
 // ─── Sauvegarde automatique via Tauri ──────────────────────────────────────
 
 async function saveToFile(): Promise<void> {
-  const data: AppData = { steamMinutes, sessions, profile };
+  const data: AppData = { steamMinutes, sessions, deletedSessions, profile };
   await invoke('save_data', { content: JSON.stringify(data, null, 2) });
   showSaveIndicator();
 }
@@ -247,6 +251,7 @@ async function loadFromFile(): Promise<void> {
       const data: AppData = JSON.parse(content);
       steamMinutes = data.steamMinutes ?? 0;
       sessions = data.sessions ?? [];
+      deletedSessions = data.deletedSessions ?? [];
       profile  = data.profile  ?? { name: '', modules: [], maps: [] };
       if (!profile.maps) profile.maps = [];
       if (!profile.modules) profile.modules = [];
@@ -560,7 +565,7 @@ function updateSteamPickStatus(): void {
   if (selected.length === 0) {
     statusEl.textContent = '';
   } else {
-    statusEl.textContent = `${selected.length} profil(s) · ${minsToHM(totalMin)}`;
+    statusEl.textContent = t('steam_pick_count', { count: selected.length, duration: minsToHM(totalMin) });
   }
 }
 
@@ -727,6 +732,7 @@ function updateEditResult(id: number): void {
 // ─── Rendu sessions ────────────────────────────────────────────────────────
 
 function renderSessions(): void {
+  if (viewingTrash) { renderTrash(); return; }
   const list = document.getElementById('sessions-list') as HTMLElement;
   const sc = document.getElementById('session-count') as HTMLElement;
   const query = ((document.getElementById('search-input') as HTMLInputElement)?.value ?? '').trim().toLowerCase();
@@ -903,8 +909,67 @@ async function saveEdit(id: number): Promise<void> {
   renderSessions(); updateTotal(); await saveToFile();
 }
 async function deleteSession(id: number): Promise<void> {
-  sessions = sessions.filter(s => s.id !== id);
+  const s = sessions.find(x => x.id === id);
+  if (s) { s.deletedAt = Date.now(); deletedSessions.unshift(s); }
+  sessions = sessions.filter(x => x.id !== id);
   renderSessions(); updateTotal(); await saveToFile();
+}
+
+async function restoreSession(id: number): Promise<void> {
+  const s = deletedSessions.find(x => x.id === id);
+  if (s) { delete s.deletedAt; sessions.unshift(s); }
+  deletedSessions = deletedSessions.filter(x => x.id !== id);
+  renderSessions(); updateTotal(); await saveToFile();
+}
+(window as unknown as Record<string, unknown>).restoreSession = restoreSession;
+
+async function purgeSession(id: number): Promise<void> {
+  deletedSessions = deletedSessions.filter(x => x.id !== id);
+  renderSessions(); await saveToFile();
+}
+(window as unknown as Record<string, unknown>).purgeSession = purgeSession;
+
+function setLogView(trash: boolean): void {
+  viewingTrash = trash;
+  document.getElementById('tab-history')?.classList.toggle('active', !trash);
+  document.getElementById('tab-audits')?.classList.toggle('active', trash);
+  renderSessions();
+}
+(window as unknown as Record<string, unknown>).setLogView = setLogView;
+
+function renderTrash(): void {
+  const list = document.getElementById('sessions-list') as HTMLElement;
+  const sc = document.getElementById('session-count') as HTMLElement;
+  if (!deletedSessions.length) {
+    list.innerHTML = `<div id="empty-msg">${t('trash_empty')}</div>`;
+    sc.textContent = '';
+    return;
+  }
+  sc.textContent = t('trash_count', { count: deletedSessions.length });
+  list.innerHTML = deletedSessions.map(s => {
+    const start = new Date(s.startTs);
+    const end   = new Date(s.endTs);
+    const nameLine    = s.name ? `<div class="s-name">${escapeHtml(s.name)}</div>` : '';
+    const aircraftRow = s.aircraft?.length ? `<div class="s-aircraft-row">${s.aircraft.map(a => `<span class="s-aircraft-tag" data-aircraft="${escapeHtml(a)}">${escapeHtml(a)}</span>`).join('')}</div>` : '';
+    const missionRow  = s.missionTypes?.length ? `<div class="s-aircraft-row">${s.missionTypes.map(mt => `<span class="s-mission-tag" data-mission="${escapeHtml(mt)}">${escapeHtml(mt)}</span>`).join('')}</div>` : '';
+    const mapRow      = s.maps?.length ? `<div class="s-aircraft-row">${s.maps.map(m => { const mp = DCS_MAPS.find(d => d.name === m); return `<span class="s-map-tag" data-map="${escapeHtml(m)}">${escapeHtml(mp ? t(mp.key) : m)}</span>`; }).join('')}</div>` : '';
+    return `<div class="session-card">
+      <div class="card-header" style="cursor:default;">
+        <div class="s-num">🗑</div>
+        <div class="s-times">
+          ${nameLine}
+          <div class="row">${t('card_start')}&nbsp;<span>${fmtDate(start)} ${pad(start.getHours())}:${pad(start.getMinutes())}</span></div>
+          <div class="row">${t('card_end')}&nbsp;<span>${fmtDate(end)} ${pad(end.getHours())}:${pad(end.getMinutes())}</span></div>
+          ${missionRow}
+          ${mapRow}
+          ${aircraftRow}
+        </div>
+        <div class="s-dur">${durLabel(s.durationMin)}</div>
+        <button class="btn-icon" onclick="restoreSession(${s.id})" title="${t('trash_restore')}">↩</button>
+        <button class="btn-icon btn-icon-danger" onclick="purgeSession(${s.id})" title="${t('trash_purge')}">✕</button>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function getCardChanges(id: number): string[] {
@@ -1015,6 +1080,7 @@ function showHistorique(): void {
   if (checkProfileEditing(() => showHistorique())) return;
   if (checkSettingsDirty(() => showHistorique())) return;
   if (checkTagColorsDirty(() => showHistorique())) return;
+  if (viewingTrash) setLogView(false);
   hidAllPages();
   (document.getElementById('log-page') as HTMLElement).style.display = '';
   document.getElementById('nav-historique')?.classList.add('active');
@@ -1949,7 +2015,8 @@ function openTagColorPopup(tagKey: string, triggerEl: HTMLElement): void {
   if (popup.dataset.openKey === tagKey && popup.style.display !== 'none') { closeTagColorPopup(); return; }
   const { sk, sl, c, ltText, dtText, isDefault } = resolveTagEditorData(tagKey);
   popup.dataset.openKey = tagKey;
-  popup.innerHTML = makeEditorHTML(sk, sl, c, ltText, dtText, isDefault, 'closeTagColorPopup()') +
+  popup.innerHTML = `<div class="tag-pop-drag"></div>` +
+    makeEditorHTML(sk, sl, c, ltText, dtText, isDefault, 'closeTagColorPopup()') +
     `<div style="display:flex;gap:6px;padding:6px 8px 4px;margin-top:6px;border-top:1px solid var(--border);">
       <button class="btn-sm" onclick="saveTagColorsPopup()">${escapeHtml(t('cust_confirm_popup'))}</button>
       <button class="btn-sm btn-cancel" onclick="cancelTagColors()">${escapeHtml(t('cust_cancel_colors'))}</button>
@@ -1959,7 +2026,35 @@ function openTagColorPopup(tagKey: string, triggerEl: HTMLElement): void {
   const pw = popup.offsetWidth || 280;
   popup.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - pw - 8)) + 'px';
   popup.style.top = (rect.bottom + 6) + 'px';
+  _attachPopupDrag(popup);
   setTimeout(() => document.addEventListener('click', _popupOutside, { once: true }), 0);
+}
+
+function _attachPopupDrag(popup: HTMLElement): void {
+  const handle = popup.querySelector('.tag-pop-drag') as HTMLElement | null;
+  if (!handle) return;
+  handle.addEventListener('mousedown', (e: MouseEvent) => {
+    e.preventDefault();
+    const rect = popup.getBoundingClientRect();
+    const offX = e.clientX - rect.left;
+    const offY = e.clientY - rect.top;
+    let moved = false;
+    const onMove = (ev: MouseEvent) => {
+      moved = true;
+      const x = Math.max(8, Math.min(ev.clientX - offX, window.innerWidth - popup.offsetWidth - 8));
+      const y = Math.max(8, Math.min(ev.clientY - offY, window.innerHeight - popup.offsetHeight - 8));
+      popup.style.left = x + 'px';
+      popup.style.top = y + 'px';
+    };
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      // Swallow the click that follows a drag so the outside-close handler doesn't fire
+      if (moved) document.addEventListener('click', (ev) => ev.stopPropagation(), { once: true, capture: true });
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
 }
 
 function _popupOutside(e: MouseEvent): void {
