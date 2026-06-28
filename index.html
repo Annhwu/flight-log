@@ -271,7 +271,13 @@
           </div>
           <div id="steam-note">
             <span><span id="steam-label" data-i18n="steam_label">■ Steam (importé) :</span> <b id="steam-display">00h 00m</b></span>
-            <button class="btn-sm" onclick="toggleSteamEdit()" data-i18n="steam_edit">Modifier</button>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button class="btn-sm btn-steam-import" onclick="importSteamHours()">
+                <img src="./icons/steam.svg" alt="" class="steam-btn-icon">
+                <span data-i18n="steam_auto_import">Import Steam</span>
+              </button>
+              <button class="btn-sm" onclick="toggleSteamEdit()" data-i18n="steam_edit">Modifier</button>
+            </div>
           </div>
           <div id="steam-input-row">
             <label data-i18n="edit_h">h :</label><input type="number" id="steam-h-inp" min="0" value="0">
@@ -362,6 +368,21 @@
           <button class="btn-sm" style="background:var(--accent);color:var(--accent-text);" onclick="dcsPickConfirm()" data-i18n="dcs_pick_import">Importer la sélection</button>
           <button class="btn-sm btn-cancel" onclick="dcsPickClose()" data-i18n="dcs_pick_cancel">Annuler</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Steam profile picker overlay -->
+  <div id="steam-pick-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);align-items:center;justify-content:center;z-index:300;">
+    <div class="confirm-modal steam-pick-modal">
+      <div class="steam-pick-header">
+        <div class="steam-pick-title" data-i18n="steam_pick_title">Profils Steam détectés</div>
+        <div id="steam-pick-status" class="steam-pick-status"></div>
+      </div>
+      <div id="steam-pick-list" class="steam-pick-list"></div>
+      <div class="steam-pick-actions">
+        <button class="btn-sm" onclick="steamPickConfirm()" data-i18n="steam_pick_import">Importer la sélection</button>
+        <button class="btn-sm btn-cancel" onclick="steamPickClose()" data-i18n="steam_pick_cancel">Annuler</button>
       </div>
     </div>
   </div>

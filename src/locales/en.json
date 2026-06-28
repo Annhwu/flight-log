@@ -233,5 +233,13 @@
   "dcs_diag_error": "Error: ",
   "tray_menu_start": "Start flight",
   "tray_menu_stop": "Stop flight",
-  "tray_menu_quit": "Close"
+  "tray_menu_quit": "Close",
+  "steam_auto_import": "Import Steam",
+  "steam_pick_title": "Steam profiles detected",
+  "steam_pick_import": "Import selection",
+  "steam_pick_cancel": "Cancel",
+  "steam_no_profile": "No Steam profile with DCS found",
+  "steam_last_played": "Last played:",
+  "steam_scanning": "Scanning Steam profiles...",
+  "steam_scan_error": "Error reading Steam data"
 }

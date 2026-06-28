@@ -1,0 +1,16 @@
+﻿services:
+  flight-log:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: flight-log:latest
+    container_name: flight-log
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:80"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

@@ -233,5 +233,13 @@
   "dcs_diag_error": "Ошибка: ",
   "tray_menu_start": "Начать вылет",
   "tray_menu_stop": "Остановить вылет",
-  "tray_menu_quit": "Закрыть"
+  "tray_menu_quit": "Закрыть",
+  "steam_auto_import": "Импорт Steam",
+  "steam_pick_title": "Обнаруженные профили Steam",
+  "steam_pick_import": "Импортировать выбранное",
+  "steam_pick_cancel": "Отмена",
+  "steam_no_profile": "Профили Steam с DCS не найдены",
+  "steam_last_played": "Последний запуск:",
+  "steam_scanning": "Поиск профилей Steam...",
+  "steam_scan_error": "Ошибка чтения данных Steam"
 }

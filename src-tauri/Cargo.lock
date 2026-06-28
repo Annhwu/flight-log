@@ -773,7 +773,9 @@ dependencies = [
 name = "flight-log"
 version = "1.0.6"
 dependencies = [
+ "base64 0.22.1",
  "hex",
+ "regex",
  "reqwest 0.12.28",
  "serde",
  "serde_json",

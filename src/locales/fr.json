@@ -233,5 +233,13 @@
   "dcs_diag_error": "Erreur : ",
   "tray_menu_start": "Démarrer le vol",
   "tray_menu_stop": "Arrêter le vol",
-  "tray_menu_quit": "Fermer"
+  "tray_menu_quit": "Fermer",
+  "steam_auto_import": "Import Steam",
+  "steam_pick_title": "Profils Steam détectés",
+  "steam_pick_import": "Importer la sélection",
+  "steam_pick_cancel": "Annuler",
+  "steam_no_profile": "Aucun profil Steam avec DCS trouvé",
+  "steam_last_played": "Dernier lancement :",
+  "steam_scanning": "Recherche des profils Steam...",
+  "steam_scan_error": "Erreur lors de la lecture Steam"
 }
